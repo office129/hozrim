@@ -1,0 +1,116 @@
+// Prisma schema for Hozrim LeBereshit — client companion app + admin panel.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+model Client {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime @default(now())
+
+  sessions    LessonSession[]
+  exercises   Exercise[]
+  journal     JournalEntry[]
+  resetTokens PasswordResetToken[]
+}
+
+// A single meeting/lesson in a client's personal process — the
+// "פגישות והקלטות" tab in admin and "הקלטות" in the client app.
+model LessonSession {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  number    Int
+  title     String
+
+  mediaType     String? // "video" | "audio" — which upload slot is active
+  fileUrl       String?
+  fileName      String?
+  durationSec   Int?
+
+  summaryText     String?
+  summaryFileUrl  String?
+  summaryFileName String?
+
+  completed  Boolean @default(false)
+  clientNote String?
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, number])
+}
+
+// Per-client practice/exercise items — the "תרגולים" tab.
+model Exercise {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  number   Int
+  title    String
+  subtitle String?
+
+  audioFileUrl  String?
+  audioFileName String?
+  pdfFileUrl    String?
+  pdfFileName   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, number])
+}
+
+// The general opening-content template shown to every client under
+// "תחילת התהליך" — managed from the admin "ספריית תכנים" screen.
+model LibraryItem {
+  id     String @id @default(cuid())
+  number Int
+  title  String
+
+  videoFileUrl  String?
+  videoFileName String?
+  audioFileUrl  String?
+  audioFileName String?
+  fileUrl       String?
+  fileName      String?
+
+  createdAt DateTime @default(now())
+}
+
+// Fully private per-client journal — never exposed to the admin panel.
+model JournalEntry {
+  id       String   @id @default(cuid())
+  clientId String
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  text     String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}

@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand green — dark for headers/nav, base for buttons/accents */
+  --color-brand-dark: oklch(0.28 0.06 155);
+  --color-brand: oklch(0.32 0.07 155);
+  --color-brand-light: oklch(0.38 0.06 155);
+  --color-brand-soft: oklch(0.9 0.03 155 / 0.5);
+  --color-brand-soft-2: oklch(0.9 0.03 155 / 0.25);
+
+  /* Gold accent (progress highlight / play-button on hero cards) */
+  --color-gold: oklch(0.78 0.11 85);
+  --color-gold-ink: oklch(0.22 0.04 90);
+
+  /* Cream backgrounds */
+  --color-cream: oklch(0.97 0.02 80);
+  --color-cream-2: oklch(0.95 0.02 80);
+  --color-card: oklch(0.99 0.006 85);
+  --color-tile: oklch(0.97 0.015 85);
+
+  /* Borders */
+  --color-border: oklch(0.9 0.02 150);
+  --color-border-strong: oklch(0.85 0.02 150);
+
+  /* Text */
+  --color-ink: oklch(0.25 0.03 150);
+  --color-ink-soft: oklch(0.45 0.03 150 / 0.85);
+  --color-muted: oklch(0.5 0.02 150);
+  --color-muted-2: oklch(0.55 0.02 150);
+  --color-on-brand: oklch(0.98 0.01 90);
+
+  /* Status */
+  --color-danger: oklch(0.55 0.12 30);
+}
+
+@theme inline {
+  --color-brand-dark: var(--color-brand-dark);
+  --color-brand: var(--color-brand);
+  --color-brand-light: var(--color-brand-light);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-brand-soft-2: var(--color-brand-soft-2);
+  --color-gold: var(--color-gold);
+  --color-gold-ink: var(--color-gold-ink);
+  --color-cream: var(--color-cream);
+  --color-cream-2: var(--color-cream-2);
+  --color-card: var(--color-card);
+  --color-tile: var(--color-tile);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-muted: var(--color-muted);
+  --color-muted-2: var(--color-muted-2);
+  --color-on-brand: var(--color-on-brand);
+  --color-danger: var(--color-danger);
+
+  --font-heading: var(--font-frank-ruhl), serif;
+  --font-body: var(--font-heebo), sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-cream-2);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: oklch(0.6 0.02 150 / 0.55);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.3s ease;
+}
