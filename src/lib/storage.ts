@@ -3,8 +3,15 @@ import { createReadStream } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
+import { put, del } from "@vercel/blob";
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./storage/uploads");
+
+// On Vercel (or anywhere BLOB_READ_WRITE_TOKEN is set) uploads go to Vercel
+// Blob, whose storage is actually persistent across deploys/instances.
+// Local disk works fine for local development but does NOT survive a
+// serverless redeploy, so it's only the fallback when no token is set.
+const useBlobStorage = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 
 export type UploadKind = "video" | "audio" | "pdf" | "file";
 
@@ -36,9 +43,19 @@ export async function saveUpload(file: File, kind: UploadKind, scope: string) {
   }
 
   const ext = extFromName(file.name) || (file.type.startsWith("audio/") ? ".m4a" : file.type.startsWith("video/") ? ".mp4" : "");
+  const storedName = `${randomUUID()}${ext}`;
+
+  if (useBlobStorage()) {
+    const blob = await put(`${scope}/${storedName}`, file, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: file.type || contentTypeFor(storedName),
+    });
+    return { url: blob.url, fileName: file.name };
+  }
+
   const dir = path.join(UPLOAD_ROOT, scope);
   await mkdir(dir, { recursive: true });
-  const storedName = `${randomUUID()}${ext}`;
   const fullPath = path.join(dir, storedName);
 
   const arrayBuffer = await file.arrayBuffer();
@@ -51,7 +68,16 @@ export async function saveUpload(file: File, kind: UploadKind, scope: string) {
 }
 
 export async function deleteUploadByUrl(url: string | null | undefined) {
-  if (!url || !url.startsWith("/api/files/")) return;
+  if (!url) return;
+  if (url.startsWith("http")) {
+    try {
+      await del(url);
+    } catch {
+      // already gone — fine
+    }
+    return;
+  }
+  if (!url.startsWith("/api/files/")) return;
   const rel = url.slice("/api/files/".length);
   const fullPath = path.join(UPLOAD_ROOT, rel);
   if (!fullPath.startsWith(UPLOAD_ROOT)) return;

@@ -1,24 +1,28 @@
 -- CreateTable
 CREATE TABLE "Admin" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Admin_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Client" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "LessonSession" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
     "number" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
@@ -31,13 +35,14 @@ CREATE TABLE "LessonSession" (
     "summaryFileName" TEXT,
     "completed" BOOLEAN NOT NULL DEFAULT false,
     "clientNote" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "LessonSession_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "LessonSession_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Exercise" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
     "number" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
@@ -46,13 +51,14 @@ CREATE TABLE "Exercise" (
     "audioFileName" TEXT,
     "pdfFileUrl" TEXT,
     "pdfFileName" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Exercise_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Exercise_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "LibraryItem" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "number" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
     "videoFileUrl" TEXT,
@@ -61,27 +67,31 @@ CREATE TABLE "LibraryItem" (
     "audioFileName" TEXT,
     "fileUrl" TEXT,
     "fileName" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "LibraryItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "JournalEntry" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
     "text" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "JournalEntry_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "JournalEntry_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "PasswordResetToken" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
-    "expiresAt" DATETIME NOT NULL,
-    "usedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PasswordResetToken_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -104,3 +114,15 @@ CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("
 
 -- CreateIndex
 CREATE INDEX "PasswordResetToken_clientId_idx" ON "PasswordResetToken"("clientId");
+
+-- AddForeignKey
+ALTER TABLE "LessonSession" ADD CONSTRAINT "LessonSession_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Exercise" ADD CONSTRAINT "Exercise_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "JournalEntry" ADD CONSTRAINT "JournalEntry_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
