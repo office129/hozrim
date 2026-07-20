@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
+import { UploadOrLinkControl } from "./UploadOrLinkControl";
 
 type ExerciseData = {
   id: string;
@@ -48,9 +49,30 @@ export function ExercisesTab({ clientId, exercises }: { clientId: string; exerci
 function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: ExerciseData }) {
   const router = useRouter();
   const [error, setError] = useState("");
-  const fileName = exercise.audioFileName || exercise.pdfFileName;
 
-  async function upload(file: File) {
+  async function uploadAudio(file: File) {
+    setError("");
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      await apiUpload(`/api/admin/clients/${clientId}/exercises/${exercise.id}/upload`, form);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+    }
+  }
+
+  async function linkAudio(url: string) {
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { audioFileUrl: url });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
+    }
+  }
+
+  async function uploadPdf(file: File) {
     setError("");
     const form = new FormData();
     form.append("file", file);
@@ -69,37 +91,49 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center gap-3.5">
-      <div className="w-9 h-[42px] rounded-md border-2 border-[oklch(0.6_0.05_155)] shrink-0 flex items-end justify-center pb-1">
-        <span className="text-[8px] font-bold text-[oklch(0.4_0.06_155)]">
-          {exercise.audioFileName ? "אודיו" : "PDF"}
-        </span>
+    <div className="bg-card border border-border rounded-2xl px-4 py-3.5 flex flex-col gap-3">
+      <div className="flex items-center gap-3.5">
+        <div className="flex-1 min-w-0">
+          <InlineEditableText
+            value={exercise.title}
+            onSave={async (next) => {
+              await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { title: next });
+              router.refresh();
+            }}
+            onDelete={deleteExercise}
+          />
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <InlineEditableText
-          value={exercise.title}
-          onSave={async (next) => {
-            await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { title: next });
-            router.refresh();
-          }}
-          onDelete={deleteExercise}
-        />
-        <div className="text-xs text-muted mt-0.5">{fileName || "טרם הועלה קובץ"}</div>
-        {error && <div className="text-danger text-xs mt-0.5">{error}</div>}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
+          <div className="text-[11.5px] text-muted">אודיו: {exercise.audioFileName || "לא הועלה"}</div>
+          <UploadOrLinkControl
+            accept="audio/*"
+            uploadLabel={exercise.audioFileName ? "החלפה" : "העלאה"}
+            onUpload={uploadAudio}
+            onLink={linkAudio}
+          />
+        </div>
+        <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
+          <div className="text-[11.5px] text-muted">PDF: {exercise.pdfFileName || "לא הועלה"}</div>
+          <label className="cursor-pointer text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px]">
+            {exercise.pdfFileName ? "החלפה" : "העלאה"}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadPdf(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
       </div>
-      <label className="cursor-pointer text-[13px] font-semibold text-brand border border-brand px-3.5 py-2 rounded-[10px] shrink-0">
-        {fileName ? "החלפת קובץ" : "העלאת PDF / אודיו"}
-        <input
-          type="file"
-          accept="application/pdf,audio/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(file);
-            e.target.value = "";
-          }}
-        />
-      </label>
+
+      {error && <div className="text-danger text-xs">{error}</div>}
     </div>
   );
 }

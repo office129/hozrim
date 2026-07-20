@@ -7,6 +7,7 @@ import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
+import { UploadOrLinkControl } from "./UploadOrLinkControl";
 
 type LibraryItemData = {
   id: string;
@@ -89,11 +90,15 @@ function LibraryRow({
     }
   }
 
-  const slots: { key: "video" | "audio" | "file"; label: string; accept: string; fileName: string | null }[] = [
-    { key: "video", label: "וידאו", accept: "video/*", fileName: item.videoFileName },
-    { key: "audio", label: "אודיו", accept: "audio/*", fileName: item.audioFileName },
-    { key: "file", label: "קובץ", accept: "*/*", fileName: item.fileName },
-  ];
+  async function link(slot: "video" | "audio", url: string) {
+    setError("");
+    try {
+      await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
+    }
+  }
 
   return (
     <div {...dragProps} className="bg-card border border-border rounded-2xl px-4 py-3.5 flex flex-col gap-3">
@@ -114,26 +119,40 @@ function LibraryRow({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {slots.map((s) => (
-          <div key={s.key} className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
-            <div className="text-[11.5px] text-muted">
-              {s.label}: {s.fileName || "לא הועלה"}
-            </div>
-            <label className="cursor-pointer text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px]">
-              {s.fileName ? "החלפה" : "העלאה"}
-              <input
-                type="file"
-                accept={s.accept}
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) upload(s.key, file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
-        ))}
+        <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
+          <div className="text-[11.5px] text-muted">וידאו: {item.videoFileName || "לא הועלה"}</div>
+          <UploadOrLinkControl
+            accept="video/*"
+            uploadLabel={item.videoFileName ? "החלפה" : "העלאה"}
+            onUpload={(file) => upload("video", file)}
+            onLink={(url) => link("video", url)}
+          />
+        </div>
+        <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
+          <div className="text-[11.5px] text-muted">אודיו: {item.audioFileName || "לא הועלה"}</div>
+          <UploadOrLinkControl
+            accept="audio/*"
+            uploadLabel={item.audioFileName ? "החלפה" : "העלאה"}
+            onUpload={(file) => upload("audio", file)}
+            onLink={(url) => link("audio", url)}
+          />
+        </div>
+        <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
+          <div className="text-[11.5px] text-muted">קובץ: {item.fileName || "לא הועלה"}</div>
+          <label className="cursor-pointer text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px]">
+            {item.fileName ? "החלפה" : "העלאה"}
+            <input
+              type="file"
+              accept="*/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) upload("file", file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
       </div>
       {error && <div className="text-danger text-xs">{error}</div>}
     </div>

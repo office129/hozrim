@@ -8,6 +8,7 @@ import { DragHandle } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
 import { Textarea } from "@/components/ui/Field";
 import { PromptModal } from "./PromptModal";
+import { UploadOrLinkControl } from "./UploadOrLinkControl";
 
 type SessionData = {
   id: string;
@@ -68,7 +69,6 @@ function SessionRow({
   const [summary, setSummary] = useState(session.summaryText || "");
   const [error, setError] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mediaInputRef = useRef<HTMLInputElement>(null);
   const summaryFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingMediaType, setPendingMediaType] = useState<"video" | "audio">(
     (session.mediaType as "video" | "audio") || "video"
@@ -94,6 +94,16 @@ function SessionRow({
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+    }
+  }
+
+  async function handleMediaLink(url: string, mediaType: "video" | "audio") {
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", { fileUrl: url, mediaType });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
     }
   }
 
@@ -159,20 +169,12 @@ function SessionRow({
           >
             אודיו
           </button>
-          <label className="cursor-pointer text-[12.5px] font-semibold text-on-brand bg-brand px-3 py-2 rounded-lg shrink-0">
-            {session.fileName ? "החלפת קובץ" : "העלאת הקלטה"}
-            <input
-              ref={mediaInputRef}
-              type="file"
-              accept={pendingMediaType === "video" ? "video/*" : "audio/*"}
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleMediaFile(file, pendingMediaType);
-                e.target.value = "";
-              }}
-            />
-          </label>
+          <UploadOrLinkControl
+            accept={pendingMediaType === "video" ? "video/*" : "audio/*"}
+            uploadLabel={session.fileName ? "החלפת קובץ" : "העלאת הקלטה"}
+            onUpload={(file) => handleMediaFile(file, pendingMediaType)}
+            onLink={(url) => handleMediaLink(url, pendingMediaType)}
+          />
         </div>
       </div>
 

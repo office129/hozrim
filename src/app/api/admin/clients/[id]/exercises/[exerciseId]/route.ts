@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
+import { isHttpUrl } from "@/lib/external-links";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,11 +13,25 @@ export async function PATCH(
   const { id: clientId, exerciseId } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: { title?: string } = {};
+  const data: { title?: string; audioFileUrl?: string; audioFileName?: string } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
+
+  let previousAudioUrl: string | null = null;
+  if (typeof body?.audioFileUrl === "string") {
+    if (!isHttpUrl(body.audioFileUrl)) {
+      return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
+    }
+    const existing = await prisma.exercise.findFirst({ where: { id: exerciseId, clientId } });
+    if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+    previousAudioUrl = existing.audioFileUrl;
+    data.audioFileUrl = body.audioFileUrl;
+    data.audioFileName =
+      typeof body?.audioFileName === "string" && body.audioFileName.trim() ? body.audioFileName.trim() : body.audioFileUrl;
+  }
 
   const result = await prisma.exercise.updateMany({ where: { id: exerciseId, clientId }, data });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+  if (data.audioFileUrl && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   return NextResponse.json({ exercise });

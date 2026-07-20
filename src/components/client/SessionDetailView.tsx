@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
+import { driveEmbedUrl } from "@/lib/external-links";
 import { DocIcon, PauseBars, PlayTriangle, Waveform } from "@/components/icons";
 
 type SessionData = {
@@ -40,6 +41,7 @@ export function SessionDetailView({ session }: { session: SessionData }) {
 
   const date = new Date(session.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
   const playPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
 
   function togglePlay() {
     const el = mediaRef.current;
@@ -88,67 +90,69 @@ export function SessionDetailView({ session }: { session: SessionData }) {
         className="w-full rounded-[18px] overflow-hidden relative bg-black flex items-center justify-center"
         style={{ aspectRatio: "16/10" }}
       >
-        {session.fileUrl ? (
-          session.mediaType === "video" ? (
-            <video
-              ref={mediaRef as React.RefObject<HTMLVideoElement>}
-              src={session.fileUrl}
-              className="w-full h-full object-contain"
-              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-              onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
-          ) : (
-            <>
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand to-brand-light">
-                <Waveform color="oklch(0.95 0.02 90)" />
-              </div>
-              <audio
-                ref={mediaRef as React.RefObject<HTMLAudioElement>}
-                src={session.fileUrl}
-                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-              />
-            </>
-          )
-        ) : (
+        {!session.fileUrl && (
           <div className="w-full h-full flex items-center justify-center text-on-brand/60 text-sm">
             טרם הועלתה הקלטה לפגישה זו
           </div>
         )}
 
-        {session.fileUrl && (
-          <button
-            onClick={togglePlay}
-            className="absolute inset-0 flex items-center justify-center bg-black/25 cursor-pointer"
-          >
-            <div className="w-[60px] h-[60px] rounded-full bg-white/90 flex items-center justify-center">
-              {isPlaying ? <PauseBars /> : <PlayTriangle size={11} />}
-            </div>
-          </button>
+        {session.fileUrl && driveEmbed && (
+          <iframe src={driveEmbed} className="w-full h-full" style={{ border: 0 }} allow="autoplay" allowFullScreen />
+        )}
+
+        {session.fileUrl && !driveEmbed && (
+          <>
+            {session.mediaType === "video" ? (
+              <video
+                ref={mediaRef as React.RefObject<HTMLVideoElement>}
+                src={session.fileUrl}
+                className="w-full h-full object-contain"
+                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+            ) : (
+              <>
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand to-brand-light">
+                  <Waveform color="oklch(0.95 0.02 90)" />
+                </div>
+                <audio
+                  ref={mediaRef as React.RefObject<HTMLAudioElement>}
+                  src={session.fileUrl}
+                  onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                  onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                />
+              </>
+            )}
+            <button
+              onClick={togglePlay}
+              className="absolute inset-0 flex items-center justify-center bg-black/25 cursor-pointer"
+            >
+              <div className="w-[60px] h-[60px] rounded-full bg-white/90 flex items-center justify-center">
+                {isPlaying ? <PauseBars /> : <PlayTriangle size={11} />}
+              </div>
+            </button>
+          </>
         )}
       </div>
 
       <div className="font-heading font-bold text-[19px] text-ink mt-4">{session.title}</div>
-      <div className="text-[13px] text-muted mt-0.5">
-        {date} · {fmt(duration)}
-      </div>
+      <div className="text-[13px] text-muted mt-0.5">{driveEmbed ? date : `${date} · ${fmt(duration)}`}</div>
 
-      <div className="flex flex-col gap-2 mt-4.5">
-        <div
-          className="w-full h-1.5 rounded-md bg-[oklch(0.92_0.02_150)] cursor-pointer"
-          onClick={scrub}
-        >
-          <div className="h-full rounded-md bg-brand" style={{ width: `${playPct}%` }} />
+      {!driveEmbed && (
+        <div className="flex flex-col gap-2 mt-4.5">
+          <div className="w-full h-1.5 rounded-md bg-[oklch(0.92_0.02_150)] cursor-pointer" onClick={scrub}>
+            <div className="h-full rounded-md bg-brand" style={{ width: `${playPct}%` }} />
+          </div>
+          <div className="flex justify-between text-xs text-muted">
+            <span>{fmt(currentTime)}</span>
+            <span>{fmt(duration)}</span>
+          </div>
         </div>
-        <div className="flex justify-between text-xs text-muted">
-          <span>{fmt(currentTime)}</span>
-          <span>{fmt(duration)}</span>
-        </div>
-      </div>
+      )}
 
       <button
         onClick={toggleComplete}

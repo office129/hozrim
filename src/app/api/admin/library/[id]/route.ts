@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
+import { isHttpUrl } from "@/lib/external-links";
+
+const LINK_SLOTS = {
+  video: { urlField: "videoFileUrl", nameField: "videoFileName" },
+  audio: { urlField: "audioFileUrl", nameField: "audioFileName" },
+} as const;
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -9,10 +15,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  if (!title) return NextResponse.json({ error: "נא להזין שם" }, { status: 400 });
+  const data: Record<string, string> = {};
 
-  const item = await prisma.libraryItem.update({ where: { id }, data: { title } });
+  if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
+
+  let previousUrl: string | null = null;
+  let hasLinkUpdate = false;
+  if (body?.slot === "video" || body?.slot === "audio") {
+    if (typeof body?.url !== "string" || !isHttpUrl(body.url)) {
+      return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
+    }
+    const slot: "video" | "audio" = body.slot;
+    const existing = await prisma.libraryItem.findUnique({ where: { id } });
+    if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+    const fields = LINK_SLOTS[slot];
+    hasLinkUpdate = true;
+    previousUrl = existing[fields.urlField];
+    data[fields.urlField] = body.url;
+    data[fields.nameField] = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : body.url;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "אין מה לעדכן" }, { status: 400 });
+  }
+
+  const item = await prisma.libraryItem.update({ where: { id }, data });
+  if (hasLinkUpdate && previousUrl) await deleteUploadByUrl(previousUrl);
   return NextResponse.json({ item });
 }
 

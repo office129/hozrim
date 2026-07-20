@@ -6,15 +6,6 @@ import bcrypt from "bcryptjs";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const DEFAULT_LIBRARY_TITLES = [
-  "היכרות ופתיחה",
-  "שחרור והנחה",
-  "שורשים משפחתיים",
-  "עיבוד רגשי",
-  "בניית תמיכה פנימית",
-  "חזרה הביתה",
-];
-
 function randomPassword() {
   return Math.random().toString(36).slice(-5) + Math.random().toString(36).slice(-5);
 }
@@ -38,14 +29,6 @@ async function main() {
     console.log("מומלץ להתחבר ולשמור את הפרטים במקום בטוח.\n");
   } else {
     console.log(`חשבון ניהול קיים כבר עבור ${adminEmail} — לא נוצר מחדש.`);
-  }
-
-  const libraryCount = await prisma.libraryItem.count();
-  if (libraryCount === 0) {
-    await prisma.libraryItem.createMany({
-      data: DEFAULT_LIBRARY_TITLES.map((title, i) => ({ title, number: i + 1 })),
-    });
-    console.log(`נוצרו ${DEFAULT_LIBRARY_TITLES.length} פריטי פתיחה בסיסיים בספריית התכנים.`);
   }
 }
 

@@ -8,6 +8,7 @@ import { apiSend } from "@/lib/api-client";
 const NAV = [
   { href: "/admin/clients", label: "לקוחות", match: "/admin/clients" },
   { href: "/admin/library", label: "ספריית תכנים", match: "/admin/library" },
+  { href: "/admin/team", label: "צוות", match: "/admin/team" },
 ];
 
 export function AdminShell({

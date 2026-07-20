@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, DocIcon, Waveform } from "@/components/icons";
+import { AudioEmbed } from "@/components/client/MediaEmbed";
 
 type Exercise = {
   id: string;
@@ -42,7 +43,7 @@ export function ExercisesList({ exercises }: { exercises: Exercise[] }) {
                 {ex.hasAudio && ex.audioUrl && (
                   <div className="bg-tile rounded-[10px] p-2.5 flex items-center gap-2.5">
                     <Waveform />
-                    <audio controls preload="metadata" className="flex-1 w-full h-9" src={ex.audioUrl} />
+                    <AudioEmbed url={ex.audioUrl} className="flex-1 w-full h-9" />
                   </div>
                 )}
                 {ex.hasFile && ex.fileUrl && (

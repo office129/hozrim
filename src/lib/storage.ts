@@ -67,9 +67,20 @@ export async function saveUpload(file: File, kind: UploadKind, scope: string) {
   };
 }
 
+// Only URLs actually hosted on our Vercel Blob store can be deleted through
+// the Blob API — an admin-pasted external link (Google Drive, etc.) has
+// nothing on our end to clean up.
+function isOwnBlobUrl(url: string) {
+  try {
+    return new URL(url).hostname.endsWith(".public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteUploadByUrl(url: string | null | undefined) {
   if (!url) return;
-  if (url.startsWith("http")) {
+  if (isOwnBlobUrl(url)) {
     try {
       await del(url);
     } catch {
