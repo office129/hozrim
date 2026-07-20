@@ -6,7 +6,7 @@ import { apiSend, ApiError } from "@/lib/api-client";
 import { PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
-function ResetPasswordForm() {
+function AdminResetPasswordForm() {
   const router = useRouter();
   const token = useSearchParams().get("token") || "";
   const [newPassword, setNewPassword] = useState("");
@@ -19,9 +19,9 @@ function ResetPasswordForm() {
     setError("");
     setLoading(true);
     try {
-      await apiSend("/api/client/reset-password", "POST", { token, newPassword });
+      await apiSend("/api/admin/reset-password", "POST", { token, newPassword });
       setDone(true);
-      setTimeout(() => router.push("/login"), 1500);
+      setTimeout(() => router.push("/admin/login"), 1500);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "משהו השתבש");
     } finally {
@@ -38,8 +38,8 @@ function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 items-center w-full max-w-[280px]">
-      <div className="font-heading font-bold text-2xl text-brand-dark">בחירת סיסמה חדשה</div>
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 items-center w-full">
+      <div className="font-heading font-bold text-xl text-brand-dark">בחירת סיסמת ניהול חדשה</div>
       <PasswordInput
         placeholder="סיסמה חדשה (6 תווים לפחות)"
         value={newPassword}
@@ -56,12 +56,12 @@ function ResetPasswordForm() {
   );
 }
 
-export default function ResetPasswordPage() {
+export default function AdminResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream px-4" dir="rtl">
-      <div className="w-full max-w-[380px] text-center flex items-center justify-center">
+      <div className="w-full max-w-[380px] bg-card border border-border rounded-[20px] px-8 py-9 shadow-[0_20px_40px_-20px_oklch(0.2_0.03_150_/_0.25)] text-center flex items-center justify-center">
         <Suspense fallback={null}>
-          <ResetPasswordForm />
+          <AdminResetPasswordForm />
         </Suspense>
       </div>
     </div>

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { apiSend, ApiError } from "@/lib/api-client";
-import { Input } from "@/components/ui/Field";
+import { Input, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 export default function AdminLoginPage() {
@@ -51,8 +52,7 @@ export default function AdminLoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <Input
-            type="password"
+          <PasswordInput
             placeholder="סיסמה"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -62,6 +62,9 @@ export default function AdminLoginPage() {
           <Button type="submit" disabled={loading} className="mt-1">
             {loading ? "מתחבר/ת…" : "כניסה לניהול"}
           </Button>
+          <Link href="/admin/forgot-password" className="text-[13px] text-muted underline text-center mt-1">
+            שכחתי סיסמה
+          </Link>
         </form>
       </div>
     </div>

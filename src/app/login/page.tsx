@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { apiSend, ApiError } from "@/lib/api-client";
+import { PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
@@ -53,15 +54,14 @@ export default function LoginPage() {
             required
             className="w-full px-4 py-[15px] rounded-2xl border border-border-strong bg-white/70 text-[15px] text-ink outline-none focus:border-brand"
           />
-          <input
-            type="password"
+          <PasswordInput
             name="password"
             autoComplete="current-password"
             placeholder="סיסמה"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-[15px] rounded-2xl border border-border-strong bg-white/70 text-[15px] text-ink outline-none focus:border-brand"
+            inputClassName="w-full px-4 py-[15px] rounded-2xl border border-border-strong bg-white/70 text-[15px] text-ink outline-none focus:border-brand"
           />
           {error && <div className="text-danger text-[13px]">{error}</div>}
           <Button type="submit" disabled={loading} className="mt-1.5 py-4 rounded-2xl text-base">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { apiSend, ApiError } from "@/lib/api-client";
-import { Input, Label } from "@/components/ui/Field";
+import { Input, Label, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 export function ProfileView({ email, name }: { email: string; name: string }) {
@@ -40,8 +40,7 @@ export function ProfileView({ email, name }: { email: string; name: string }) {
       </div>
       <div>
         <Label>סיסמה חדשה</Label>
-        <Input
-          type="password"
+        <PasswordInput
           placeholder="השאירו ריק כדי לא לשנות"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
