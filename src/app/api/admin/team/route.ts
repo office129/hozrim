@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { hashPassword } from "@/lib/auth";
 import { generateTempPassword } from "@/lib/tokens";
-import { sendMail } from "@/lib/email";
+import { sendMail, isEmailConfigured } from "@/lib/email";
 
 export async function GET() {
   const adminId = await requireAdmin();
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       "חוזרים לבראשית — גישה לפאנל ניהול",
       `שלום ${name},\n\nנוצרה עבורך גישה לפאנל הניהול של חוזרים לבראשית.\n\nכתובת אימייל להתחברות: ${email}\nסיסמה זמנית: ${tempPassword}\n\nמומלץ להחליף סיסמה בהקדם.`
     );
-    emailSent = process.env.SMTP_HOST != null;
+    emailSent = isEmailConfigured();
   } catch (e) {
     console.error("Failed to send admin invite email", e);
   }

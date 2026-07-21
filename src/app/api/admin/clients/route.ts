@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { hashPassword } from "@/lib/auth";
 import { generateTempPassword } from "@/lib/tokens";
-import { sendMail } from "@/lib/email";
+import { sendMail, isEmailConfigured } from "@/lib/email";
 import { getClientsOverview } from "@/lib/admin-data";
 
 export async function GET() {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       "חוזרים לבראשית — פרטי הכניסה שלך",
       `שלום ${name},\n\nחשבונך במרחב הליווי האישי נוצר.\n\nכתובת אימייל להתחברות: ${email}\nסיסמה זמנית: ${tempPassword}\n\nמומלץ להחליף את הסיסמה מהאזור האישי לאחר הכניסה הראשונה.`
     );
-    emailSent = process.env.SMTP_HOST != null;
+    emailSent = isEmailConfigured();
   } catch (e) {
     console.error("Failed to send welcome email", e);
   }

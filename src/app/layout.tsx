@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Heebo, Frank_Ruhl_Libre } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,14 @@ const frankRuhl = Frank_Ruhl_Libre({
 export const metadata: Metadata = {
   title: "חוזרים לבראשית",
   description: "מרחב הליווי האישי שלך",
+  appleWebApp: {
+    title: "חוזרים לבראשית",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#173d27",
 };
 
 export default function RootLayout({
