@@ -13,7 +13,7 @@ export function VideoEmbed({ url, className }: { url: string; className?: string
       />
     );
   }
-  return <video controls preload="metadata" className={className} src={url} />;
+  return <video controls playsInline preload="metadata" className={className} src={url} />;
 }
 
 export function AudioEmbed({ url, className }: { url: string; className?: string }) {
