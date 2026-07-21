@@ -7,7 +7,12 @@ export function VideoEmbed({ url, className }: { url: string; className?: string
       <iframe
         src={embed}
         className={className}
-        style={{ border: 0, aspectRatio: "16/9" }}
+        // Drive's own video-player chrome (scrubber, play button,
+        // fullscreen icon) is fixed-size UI, not truly responsive — on a
+        // narrow phone, aspect-ratio 16/9 alone can squeeze it down to
+        // where the controls are barely legible/tappable. The floor keeps
+        // real room for it regardless of screen width.
+        style={{ border: 0, aspectRatio: "16/9", minHeight: 220 }}
         allow="autoplay"
         allowFullScreen
       />
