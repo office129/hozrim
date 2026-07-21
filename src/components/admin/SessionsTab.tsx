@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
@@ -88,6 +89,22 @@ function SessionRow({
 
   async function handleMediaFile(file: File, mediaType: "video" | "audio") {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, mediaType, `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
+          fileUrl: direct.url,
+          fileName: direct.fileName,
+          mediaType,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      console.error("Media upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
       setError(
         `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`

@@ -171,16 +171,26 @@ export function SessionDetailView({ session }: { session: SessionData }) {
           <div className="text-[13.5px] text-ink leading-relaxed whitespace-pre-wrap">{session.summaryText}</div>
         )}
         {hasSummaryFile && (
-          <a
-            href={session.summaryFileUrl!}
-            download
+          <div
             className="flex items-center gap-2.5 bg-white/60 rounded-[10px] px-3 py-2.5"
             style={{ marginTop: hasSummaryText ? 10 : 0 }}
           >
             <DocIcon />
             <div className="flex-1 text-[13px] text-ink truncate">{session.summaryFileName}</div>
-            <div className="text-[12.5px] font-semibold text-brand shrink-0">להורדה</div>
-          </a>
+            <div className="flex items-center gap-3 shrink-0">
+              <a
+                href={session.summaryFileUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12.5px] font-semibold text-brand"
+              >
+                צפייה
+              </a>
+              <a href={session.summaryFileUrl!} download className="text-[12.5px] font-semibold text-brand">
+                הורדה
+              </a>
+            </div>
+          </div>
         )}
         {!hasSummaryText && !hasSummaryFile && (
           <div className="text-[13.5px] text-[oklch(0.4_0.03_150)]">עדיין אין סיכום לפגישה הזו</div>

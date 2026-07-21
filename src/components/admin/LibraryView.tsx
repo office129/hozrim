@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
@@ -81,14 +82,22 @@ function LibraryRow({
 
   async function upload(slot: "video" | "audio" | "file", file: File) {
     setError("");
-    if (slot !== "file" && file.size > MAX_DIRECT_UPLOAD_BYTES) {
-      setError(
-        `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`
-      );
-      return;
-    }
     if (slot === "file") setFileUploading(true);
     try {
+      if (slot !== "file") {
+        const direct = await tryUploadFileDirect(file, slot, "library");
+        if (direct) {
+          await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: direct.url, name: direct.fileName });
+          router.refresh();
+          return;
+        }
+        if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
+          setError(
+            `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`
+          );
+          return;
+        }
+      }
       const form = new FormData();
       form.append("file", file);
       form.append("slot", slot);

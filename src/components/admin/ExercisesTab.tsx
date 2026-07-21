@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
@@ -54,6 +55,21 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
 
   async function uploadAudio(file: File) {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, "audio", `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
+          audioFileUrl: direct.url,
+          audioFileName: direct.fileName,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      console.error("Audio upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
       setError(
         `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`

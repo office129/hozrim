@@ -23,6 +23,16 @@ export const KIND_RULES: Record<UploadKind, { mimePrefixes: string[]; maxBytes: 
   image: { mimePrefixes: ["image/"], maxBytes: 10 * 1024 * 1024, exts: [".jpg", ".jpeg", ".png", ".webp", ".gif"] },
 };
 
+// Used by the blob-token route to gate direct-to-Blob client uploads
+// (video/audio only — see upload-limits.ts for why other kinds don't use it).
+export const ALLOWED_CONTENT_TYPES: Record<UploadKind, string[] | undefined> = {
+  video: ["video/*"],
+  audio: ["audio/*"],
+  pdf: ["application/pdf"],
+  file: undefined,
+  image: ["image/*"],
+};
+
 export class UploadValidationError extends Error {}
 
 function extFromName(name: string) {

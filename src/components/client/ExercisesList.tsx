@@ -54,15 +54,23 @@ export function ExercisesList({ exercises }: { exercises: Exercise[] }) {
                     </div>
                   ))}
                 {ex.hasFile && ex.fileUrl && (
-                  <a
-                    href={ex.fileUrl}
-                    download={ex.fileName || true}
-                    className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5"
-                  >
+                  <div className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5">
                     <DocIcon />
                     <div className="flex-1 text-[13px] text-ink truncate">{ex.fileName || "קובץ PDF"}</div>
-                    <div className="text-[12.5px] font-semibold text-brand shrink-0">להורדה</div>
-                  </a>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <a
+                        href={ex.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12.5px] font-semibold text-brand"
+                      >
+                        צפייה
+                      </a>
+                      <a href={ex.fileUrl} download={ex.fileName || true} className="text-[12.5px] font-semibold text-brand">
+                        הורדה
+                      </a>
+                    </div>
+                  </div>
                 )}
                 {hasNeither && (
                   <div className="text-[12.5px] text-muted-2 px-0.5">עדיין לא הועלה חומר לתרגול הזה</div>

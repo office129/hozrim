@@ -55,15 +55,23 @@ export function RoadmapList({ items }: { items: Item[] }) {
                     </div>
                   ))}
                 {item.hasFile && item.fileUrl && (
-                  <a
-                    href={item.fileUrl}
-                    download={item.fileName || true}
-                    className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5"
-                  >
+                  <div className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5">
                     <DocIcon />
                     <div className="flex-1 text-[13px] text-ink truncate">{item.fileName || "קובץ"}</div>
-                    <div className="text-[12.5px] font-semibold text-brand shrink-0">להורדה</div>
-                  </a>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <a
+                        href={item.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12.5px] font-semibold text-brand"
+                      >
+                        צפייה
+                      </a>
+                      <a href={item.fileUrl} download={item.fileName || true} className="text-[12.5px] font-semibold text-brand">
+                        הורדה
+                      </a>
+                    </div>
+                  </div>
                 )}
                 {hasNothing && (
                   <div className="text-[12.5px] text-muted-2 px-0.5">עדיין לא הועלה חומר כאן</div>
