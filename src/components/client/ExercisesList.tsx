@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, DocIcon, Waveform } from "@/components/icons";
 import { AudioEmbed } from "@/components/client/MediaEmbed";
+import { driveEmbedUrl } from "@/lib/external-links";
 
 type Exercise = {
   id: string;
@@ -40,12 +41,18 @@ export function ExercisesList({ exercises }: { exercises: Exercise[] }) {
             </button>
             {open && (
               <div className="px-3.5 pb-3.5 flex flex-col gap-3">
-                {ex.hasAudio && ex.audioUrl && (
-                  <div className="bg-tile rounded-[10px] p-2.5 flex items-center gap-2.5">
-                    <Waveform />
-                    <AudioEmbed url={ex.audioUrl} className="flex-1 w-full h-9" />
-                  </div>
-                )}
+                {ex.hasAudio &&
+                  ex.audioUrl &&
+                  (driveEmbedUrl(ex.audioUrl) ? (
+                    <div className="rounded-[10px] overflow-hidden">
+                      <AudioEmbed url={ex.audioUrl} className="w-full block" />
+                    </div>
+                  ) : (
+                    <div className="bg-tile rounded-[10px] p-2.5 flex items-center gap-2.5">
+                      <Waveform />
+                      <AudioEmbed url={ex.audioUrl} className="flex-1 w-full h-9" />
+                    </div>
+                  ))}
                 {ex.hasFile && ex.fileUrl && (
                   <a
                     href={ex.fileUrl}

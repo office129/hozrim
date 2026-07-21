@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, DocIcon, PlayTriangle, Waveform } from "@/components/icons";
 import { AudioEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
+import { driveEmbedUrl } from "@/lib/external-links";
 
 type Item = {
   id: string;
@@ -41,12 +42,18 @@ export function RoadmapList({ items }: { items: Item[] }) {
                 {item.hasVideo && item.videoUrl && (
                   <VideoEmbed url={item.videoUrl} className="w-full rounded-[10px] bg-black" />
                 )}
-                {item.hasAudio && item.audioUrl && (
-                  <div className="bg-tile rounded-[10px] p-2.5 flex items-center gap-2.5">
-                    <Waveform />
-                    <AudioEmbed url={item.audioUrl} className="flex-1 w-full h-9" />
-                  </div>
-                )}
+                {item.hasAudio &&
+                  item.audioUrl &&
+                  (driveEmbedUrl(item.audioUrl) ? (
+                    <div className="rounded-[10px] overflow-hidden">
+                      <AudioEmbed url={item.audioUrl} className="w-full block" />
+                    </div>
+                  ) : (
+                    <div className="bg-tile rounded-[10px] p-2.5 flex items-center gap-2.5">
+                      <Waveform />
+                      <AudioEmbed url={item.audioUrl} className="flex-1 w-full h-9" />
+                    </div>
+                  ))}
                 {item.hasFile && item.fileUrl && (
                   <a
                     href={item.fileUrl}
