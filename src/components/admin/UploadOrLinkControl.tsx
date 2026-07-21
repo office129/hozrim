@@ -11,12 +11,13 @@ export function UploadOrLinkControl({
 }: {
   accept: string;
   uploadLabel: string;
-  onUpload: (file: File) => void;
+  onUpload: (file: File) => void | Promise<void>;
   onLink: (url: string) => void | Promise<void>;
 }) {
   const [mode, setMode] = useState<"upload" | "link">("upload");
   const [linkValue, setLinkValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   if (mode === "link") {
     return (
@@ -54,21 +55,33 @@ export function UploadOrLinkControl({
 
   return (
     <div className="flex items-center gap-1.5">
-      <label className="cursor-pointer text-[12.5px] font-semibold text-on-brand bg-brand px-3 py-2 rounded-lg shrink-0">
-        {uploadLabel}
+      <label
+        className={`text-[12.5px] font-semibold text-on-brand bg-brand px-3 py-2 rounded-lg shrink-0 ${
+          uploading ? "opacity-50" : "cursor-pointer"
+        }`}
+      >
+        {uploading ? "מעלה…" : uploadLabel}
         <input
           type="file"
           accept={accept}
           className="hidden"
-          onChange={(e) => {
+          disabled={uploading}
+          onChange={async (e) => {
             const file = e.target.files?.[0];
-            if (file) onUpload(file);
             e.target.value = "";
+            if (!file) return;
+            setUploading(true);
+            try {
+              await onUpload(file);
+            } finally {
+              setUploading(false);
+            }
           }}
         />
       </label>
       <button
-        className="text-[11px] text-muted underline shrink-0 cursor-pointer whitespace-nowrap"
+        className="text-[11px] text-muted underline shrink-0 cursor-pointer whitespace-nowrap disabled:opacity-50"
+        disabled={uploading}
         onClick={() => setMode("link")}
       >
         קישור

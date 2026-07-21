@@ -53,19 +53,14 @@ export function ProfileView({
         router.refresh();
         return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "העלאת התמונה נכשלה");
-      setAvatarUploading(false);
-      return;
-    }
-    try {
       const form = new FormData();
       form.append("file", file);
       const data = await apiUpload("/api/client/me/avatar", form);
       setAvatar(data.avatarUrl);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "העלאת התמונה נכשלה");
+      console.error("Avatar upload failed", err);
+      setError(err instanceof Error ? err.message : "העלאת התמונה נכשלה");
     } finally {
       setAvatarUploading(false);
     }

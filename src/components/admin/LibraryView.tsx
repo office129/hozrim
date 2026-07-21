@@ -71,6 +71,7 @@ function LibraryRow({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [fileUploading, setFileUploading] = useState(false);
 
   async function deleteItem() {
     if (!confirm(`למחוק את "${item.title}"?`)) return;
@@ -80,6 +81,7 @@ function LibraryRow({
 
   async function upload(slot: "video" | "audio" | "file", file: File) {
     setError("");
+    if (slot === "file") setFileUploading(true);
     try {
       const direct = await tryUploadFileDirect(file, slot, "library");
       if (direct) {
@@ -87,18 +89,16 @@ function LibraryRow({
         router.refresh();
         return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
-      return;
-    }
-    const form = new FormData();
-    form.append("file", file);
-    form.append("slot", slot);
-    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("slot", slot);
       await apiUpload(`/api/admin/library/${item.id}/upload`, form);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+      console.error("Library upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+    } finally {
+      if (slot === "file") setFileUploading(false);
     }
   }
 
@@ -151,16 +151,21 @@ function LibraryRow({
         </div>
         <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
           <div className="text-[11.5px] text-muted">קובץ: {item.fileName || "לא הועלה"}</div>
-          <label className="cursor-pointer text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px]">
-            {item.fileName ? "החלפה" : "העלאה"}
+          <label
+            className={`text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px] ${
+              fileUploading ? "opacity-50" : "cursor-pointer"
+            }`}
+          >
+            {fileUploading ? "מעלה…" : item.fileName ? "החלפה" : "העלאה"}
             <input
               type="file"
               accept="*/*"
               className="hidden"
+              disabled={fileUploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) upload("file", file);
                 e.target.value = "";
+                if (file) upload("file", file);
               }}
             />
           </label>

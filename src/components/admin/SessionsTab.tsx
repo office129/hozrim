@@ -69,6 +69,7 @@ function SessionRow({
   const router = useRouter();
   const [summary, setSummary] = useState(session.summaryText || "");
   const [error, setError] = useState("");
+  const [summaryUploading, setSummaryUploading] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const summaryFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingMediaType, setPendingMediaType] = useState<"video" | "audio">(
@@ -99,6 +100,7 @@ function SessionRow({
         return;
       }
     } catch (err) {
+      console.error("Media upload failed", err);
       setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
       return;
     }
@@ -109,6 +111,7 @@ function SessionRow({
       await apiUpload(`/api/admin/clients/${clientId}/sessions/${session.id}/upload`, form);
       router.refresh();
     } catch (err) {
+      console.error("Media upload failed", err);
       setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
     }
   }
@@ -125,6 +128,7 @@ function SessionRow({
 
   async function handleSummaryFile(file: File) {
     setError("");
+    setSummaryUploading(true);
     try {
       const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
       if (direct) {
@@ -135,17 +139,15 @@ function SessionRow({
         router.refresh();
         return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
-      return;
-    }
-    const form = new FormData();
-    form.append("file", file);
-    try {
+      const form = new FormData();
+      form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-file`, form);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+      console.error("Summary PDF upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+    } finally {
+      setSummaryUploading(false);
     }
   }
 
@@ -217,17 +219,22 @@ function SessionRow({
           className="min-h-[70px] text-[13px]"
         />
         <div className="flex items-center gap-2.5 mt-2">
-          <label className="cursor-pointer text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-[9px] shrink-0">
-            {session.summaryFileName ? "החלפת PDF" : "העלאת PDF"}
+          <label
+            className={`text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-[9px] shrink-0 ${
+              summaryUploading ? "opacity-50" : "cursor-pointer"
+            }`}
+          >
+            {summaryUploading ? "מעלה…" : session.summaryFileName ? "החלפת PDF" : "העלאת PDF"}
             <input
               ref={summaryFileInputRef}
               type="file"
               accept="application/pdf"
               className="hidden"
+              disabled={summaryUploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleSummaryFile(file);
                 e.target.value = "";
+                if (file) handleSummaryFile(file);
               }}
             />
           </label>

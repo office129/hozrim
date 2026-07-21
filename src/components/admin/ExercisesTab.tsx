@@ -50,6 +50,7 @@ export function ExercisesTab({ clientId, exercises }: { clientId: string; exerci
 function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: ExerciseData }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [pdfUploading, setPdfUploading] = useState(false);
 
   async function uploadAudio(file: File) {
     setError("");
@@ -63,17 +64,13 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
         router.refresh();
         return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
-      return;
-    }
-    const form = new FormData();
-    form.append("file", file);
-    try {
+      const form = new FormData();
+      form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/exercises/${exercise.id}/upload`, form);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+      console.error("Audio upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
     }
   }
 
@@ -89,6 +86,7 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
 
   async function uploadPdf(file: File) {
     setError("");
+    setPdfUploading(true);
     try {
       const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
       if (direct) {
@@ -99,17 +97,15 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
         router.refresh();
         return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
-      return;
-    }
-    const form = new FormData();
-    form.append("file", file);
-    try {
+      const form = new FormData();
+      form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/exercises/${exercise.id}/upload`, form);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
+      console.error("PDF upload failed", err);
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+    } finally {
+      setPdfUploading(false);
     }
   }
 
@@ -146,16 +142,21 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
         </div>
         <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
           <div className="text-[11.5px] text-muted">PDF: {exercise.pdfFileName || "לא הועלה"}</div>
-          <label className="cursor-pointer text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px]">
-            {exercise.pdfFileName ? "החלפה" : "העלאה"}
+          <label
+            className={`text-[11.5px] font-semibold text-brand border border-brand px-2.5 py-1 rounded-[7px] ${
+              pdfUploading ? "opacity-50" : "cursor-pointer"
+            }`}
+          >
+            {pdfUploading ? "מעלה…" : exercise.pdfFileName ? "החלפה" : "העלאה"}
             <input
               type="file"
               accept="application/pdf"
               className="hidden"
+              disabled={pdfUploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) uploadPdf(file);
                 e.target.value = "";
+                if (file) uploadPdf(file);
               }}
             />
           </label>
