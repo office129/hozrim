@@ -9,7 +9,7 @@ export default async function ProfilePage() {
   return (
     <div className="p-6 md:p-0 animate-fade-up md:max-w-md">
       <div className="hidden md:block font-heading font-bold text-2xl text-ink mb-6">האזור האישי שלי</div>
-      <ProfileView clientId={client!.id} email={client!.email} name={client!.name} avatarUrl={client!.avatarUrl} />
+      <ProfileView email={client!.email} name={client!.name} avatarUrl={client!.avatarUrl} />
     </div>
   );
 }

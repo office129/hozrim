@@ -130,22 +130,13 @@ function SessionRow({
     setError("");
     setSummaryUploading(true);
     try {
-      const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
-      if (direct) {
-        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
-          summaryFileUrl: direct.url,
-          summaryFileName: direct.fileName,
-        });
-        router.refresh();
-        return;
-      }
       const form = new FormData();
       form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-file`, form);
       router.refresh();
     } catch (err) {
       console.error("Summary PDF upload failed", err);
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
     } finally {
       setSummaryUploading(false);
     }

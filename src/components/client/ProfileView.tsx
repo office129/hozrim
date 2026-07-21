@@ -3,17 +3,14 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
-import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { Input, Label, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
 export function ProfileView({
-  clientId,
   email,
   name,
   avatarUrl,
 }: {
-  clientId: string;
   email: string;
   name: string;
   avatarUrl: string | null;
@@ -46,13 +43,6 @@ export function ProfileView({
     setError("");
     setAvatarUploading(true);
     try {
-      const direct = await tryUploadFileDirect(file, "image", `clients/${clientId}`, "client");
-      if (direct) {
-        await apiSend("/api/client/me", "PATCH", { avatarUrl: direct.url });
-        setAvatar(direct.url);
-        router.refresh();
-        return;
-      }
       const form = new FormData();
       form.append("file", file);
       const data = await apiUpload("/api/client/me/avatar", form);
@@ -60,7 +50,7 @@ export function ProfileView({
       router.refresh();
     } catch (err) {
       console.error("Avatar upload failed", err);
-      setError(err instanceof Error ? err.message : "העלאת התמונה נכשלה");
+      setError(err instanceof ApiError ? err.message : "העלאת התמונה נכשלה");
     } finally {
       setAvatarUploading(false);
     }

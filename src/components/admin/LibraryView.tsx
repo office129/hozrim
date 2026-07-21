@@ -83,11 +83,13 @@ function LibraryRow({
     setError("");
     if (slot === "file") setFileUploading(true);
     try {
-      const direct = await tryUploadFileDirect(file, slot, "library");
-      if (direct) {
-        await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: direct.url, name: direct.fileName });
-        router.refresh();
-        return;
+      if (slot !== "file") {
+        const direct = await tryUploadFileDirect(file, slot, "library");
+        if (direct) {
+          await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: direct.url, name: direct.fileName });
+          router.refresh();
+          return;
+        }
       }
       const form = new FormData();
       form.append("file", file);
@@ -96,7 +98,7 @@ function LibraryRow({
       router.refresh();
     } catch (err) {
       console.error("Library upload failed", err);
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
     } finally {
       if (slot === "file") setFileUploading(false);
     }

@@ -88,22 +88,13 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     setError("");
     setPdfUploading(true);
     try {
-      const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
-      if (direct) {
-        await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
-          pdfFileUrl: direct.url,
-          pdfFileName: direct.fileName,
-        });
-        router.refresh();
-        return;
-      }
       const form = new FormData();
       form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/exercises/${exercise.id}/upload`, form);
       router.refresh();
     } catch (err) {
       console.error("PDF upload failed", err);
-      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
     } finally {
       setPdfUploading(false);
     }
