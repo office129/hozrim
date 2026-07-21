@@ -9,15 +9,18 @@ export function isHttpUrl(value: string) {
   }
 }
 
-export function driveEmbedUrl(url: string): string | null {
+export function driveFileId(url: string): string | null {
   try {
     const u = new URL(url);
     if (!/(^|\.)drive\.google\.com$/.test(u.hostname)) return null;
     const match = DRIVE_FILE_ID_RE.exec(u.pathname);
-    const fileId = match ? match[1] : u.searchParams.get("id");
-    if (!fileId) return null;
-    return `https://drive.google.com/file/d/${fileId}/preview`;
+    return match ? match[1] : u.searchParams.get("id");
   } catch {
     return null;
   }
+}
+
+export function driveEmbedUrl(url: string): string | null {
+  const fileId = driveFileId(url);
+  return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : null;
 }
