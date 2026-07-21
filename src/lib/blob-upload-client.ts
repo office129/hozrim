@@ -36,6 +36,10 @@ export async function tryUploadFileDirect(
     access: "public",
     handleUploadUrl: "/api/admin/blob-token",
     clientPayload: kind,
+    // Large video files sent as one giant PUT are prone to stalling on a
+    // flaky connection with no retry. Multipart splits the file into
+    // chunks uploaded in parallel, each retried independently on failure.
+    multipart: true,
     onUploadProgress: onProgress ? ({ percentage }) => onProgress(percentage) : undefined,
   });
   return { url: blob.url, fileName: file.name };
