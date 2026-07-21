@@ -27,6 +27,17 @@ async function main() {
     console.log(`אימייל:  ${adminEmail}`);
     console.log(`סיסמה:   ${adminPassword}`);
     console.log("מומלץ להתחבר ולשמור את הפרטים במקום בטוח.\n");
+  } else if (process.env.ADMIN_PASSWORD) {
+    // ADMIN_EMAIL + ADMIN_PASSWORD are the source of truth on every deploy:
+    // if that admin already exists, keep its password in sync with the env
+    // var instead of ignoring it — this is the recovery path when the
+    // original password/email was lost (e.g. a Vercel var marked "Sensitive"
+    // can never be viewed again).
+    await prisma.admin.update({
+      where: { email: adminEmail },
+      data: { passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD, 10) },
+    });
+    console.log(`חשבון ניהול קיים עבור ${adminEmail} — הסיסמה סונכרנה מ-ADMIN_PASSWORD.`);
   } else {
     console.log(`חשבון ניהול קיים כבר עבור ${adminEmail} — לא נוצר מחדש.`);
   }
