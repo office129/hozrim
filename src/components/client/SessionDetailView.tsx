@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
 import { driveEmbedUrl } from "@/lib/external-links";
-import { AudioEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
+import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
 import { DocIcon, Waveform } from "@/components/icons";
 
 type SessionData = {
@@ -105,27 +105,27 @@ export function SessionDetailView({ session }: { session: SessionData }) {
           <div className="text-[13.5px] text-ink leading-relaxed whitespace-pre-wrap">{session.summaryText}</div>
         )}
         {hasSummaryFile && (
-          <div
-            className="flex items-center gap-2.5 bg-white/60 rounded-[10px] px-3 py-2.5"
-            style={{ marginTop: hasSummaryText ? 10 : 0 }}
-          >
-            <DocIcon />
-            <div className="flex-1 text-[13px] text-ink truncate">{session.summaryFileName}</div>
-            <div className="flex items-center gap-3 shrink-0">
-              <a
-                href={session.summaryFileUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[12.5px] font-semibold text-brand"
-              >
-                צפייה
-              </a>
-              {!summaryIsDrive && (
-                <a href={session.summaryFileUrl!} download className="text-[12.5px] font-semibold text-brand">
-                  הורדה
+          <div style={{ marginTop: hasSummaryText ? 10 : 0 }}>
+            <div className="flex items-center gap-2.5 bg-white/60 rounded-[10px] px-3 py-2.5">
+              <DocIcon />
+              <div className="flex-1 text-[13px] text-ink truncate">{session.summaryFileName}</div>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={session.summaryFileUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[12.5px] font-semibold text-brand"
+                >
+                  פתיחה בחלון חדש
                 </a>
-              )}
+                {!summaryIsDrive && (
+                  <a href={session.summaryFileUrl!} download className="text-[12.5px] font-semibold text-brand">
+                    הורדה
+                  </a>
+                )}
+              </div>
             </div>
+            <DocEmbed url={session.summaryFileUrl!} className="w-full rounded-[10px] mt-2" />
           </div>
         )}
         {!hasSummaryText && !hasSummaryFile && (

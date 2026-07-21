@@ -26,3 +26,10 @@ export function AudioEmbed({ url, className }: { url: string; className?: string
   }
   return <audio controls preload="metadata" className={className} src={url} />;
 }
+
+export function DocEmbed({ url, className }: { url: string; className?: string }) {
+  const embed = driveEmbedUrl(url);
+  // A PDF preview (Drive's own, or a browser's native PDF viewer) needs
+  // real page height to be legible — a link row isn't a substitute.
+  return <iframe src={embed || url} className={className} style={{ border: 0, height: 340 }} />;
+}
