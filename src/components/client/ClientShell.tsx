@@ -38,7 +38,7 @@ export function ClientShell({
   }));
 
   return (
-    <div className="min-h-dvh flex flex-col md:flex-row bg-cream-2" dir="rtl">
+    <div className="min-h-svh flex flex-col md:flex-row bg-cream-2" dir="rtl">
       {/* Desktop-only sidebar chrome */}
       <aside className="hidden md:flex w-64 shrink-0 bg-brand-dark min-h-screen px-5 py-7 flex-col gap-7">
         <div className="flex items-center gap-2.5">
@@ -84,7 +84,7 @@ export function ClientShell({
 
       {/* Shared frame: phone-shell card on mobile, plain flexible column on desktop */}
       <div className="flex-1 flex justify-center md:justify-start">
-        <div className="w-full sm:max-w-[412px] md:max-w-none sm:min-h-[844px] md:min-h-screen h-dvh sm:h-auto md:h-auto bg-cream sm:rounded-[28px] md:rounded-none shadow-[0_30px_60px_-20px_oklch(0.2_0.03_150_/_0.35),0_0_0_1px_oklch(0.9_0.02_150)] md:shadow-none overflow-hidden flex flex-col relative sm:my-8 md:my-0 mx-auto md:mx-0">
+        <div className="w-full sm:max-w-[412px] md:max-w-none sm:min-h-[844px] md:min-h-screen h-svh sm:h-auto md:h-auto bg-cream sm:rounded-[28px] md:rounded-none shadow-[0_30px_60px_-20px_oklch(0.2_0.03_150_/_0.35),0_0_0_1px_oklch(0.9_0.02_150)] md:shadow-none overflow-hidden flex flex-col relative sm:my-8 md:my-0 mx-auto md:mx-0">
           <div className="px-6 md:px-10 pt-[22px] md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-brand-dark to-brand-light md:rounded-none rounded-b-[24px] shrink-0">
             {isProfile ? (
               <div className="flex items-center gap-2.5">
