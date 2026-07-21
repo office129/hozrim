@@ -25,6 +25,12 @@ export function ProfileView({
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  async function logout() {
+    await apiSend("/api/client/logout", "POST");
+    router.push("/login");
+    router.refresh();
+  }
+
   async function save() {
     setError("");
     setLoading(true);
@@ -112,6 +118,9 @@ export function ProfileView({
         {loading ? "שומר…" : "שמירת שינויים"}
       </Button>
       {indicator && <div className="text-xs text-muted text-center">{indicator}</div>}
+      <button onClick={logout} className="text-[13px] text-muted underline text-center cursor-pointer mt-1">
+        התנתקות
+      </button>
     </div>
   );
 }

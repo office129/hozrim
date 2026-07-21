@@ -70,10 +70,8 @@ function SessionRow({
   const router = useRouter();
   const [summary, setSummary] = useState(session.summaryText || "");
   const [error, setError] = useState("");
-  const [summaryUploading, setSummaryUploading] = useState(false);
   const [mediaProgress, setMediaProgress] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const summaryFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingMediaType, setPendingMediaType] = useState<"video" | "audio">(
     (session.mediaType as "video" | "audio") || "video"
   );
@@ -139,7 +137,6 @@ function SessionRow({
 
   async function handleSummaryFile(file: File) {
     setError("");
-    setSummaryUploading(true);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -148,8 +145,16 @@ function SessionRow({
     } catch (err) {
       console.error("Summary PDF upload failed", err);
       setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
-    } finally {
-      setSummaryUploading(false);
+    }
+  }
+
+  async function handleSummaryLink(url: string) {
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", { summaryFileUrl: url });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
     }
   }
 
@@ -232,26 +237,13 @@ function SessionRow({
           placeholder="מה תרצה/י שהלקוח/ה יראה כסיכום לפגישה הזו..."
           className="min-h-[70px] text-[13px]"
         />
-        <div className="flex items-center gap-2.5 mt-2">
-          <label
-            className={`text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-[9px] shrink-0 ${
-              summaryUploading ? "opacity-50" : "cursor-pointer"
-            }`}
-          >
-            {summaryUploading ? "מעלה…" : session.summaryFileName ? "החלפת PDF" : "העלאת PDF"}
-            <input
-              ref={summaryFileInputRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              disabled={summaryUploading}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) handleSummaryFile(file);
-              }}
-            />
-          </label>
+        <div className="flex flex-wrap items-center gap-2.5 mt-2">
+          <UploadOrLinkControl
+            accept="application/pdf"
+            uploadLabel={session.summaryFileName ? "החלפת PDF" : "העלאת PDF"}
+            onUpload={handleSummaryFile}
+            onLink={handleSummaryLink}
+          />
           <div className="flex-1 text-xs text-muted truncate">{session.summaryFileName || "לא הועלה קובץ PDF"}</div>
           {session.summaryFileName && (
             <button onClick={deleteSummaryFile} className="text-xs text-danger underline cursor-pointer shrink-0">

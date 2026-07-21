@@ -42,6 +42,7 @@ export function SessionDetailView({ session }: { session: SessionData }) {
   const date = new Date(session.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
   const playPct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
   const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
+  const summaryIsDrive = session.summaryFileUrl ? !!driveEmbedUrl(session.summaryFileUrl) : false;
 
   function togglePlay() {
     const el = mediaRef.current;
@@ -186,9 +187,11 @@ export function SessionDetailView({ session }: { session: SessionData }) {
               >
                 צפייה
               </a>
-              <a href={session.summaryFileUrl!} download className="text-[12.5px] font-semibold text-brand">
-                הורדה
-              </a>
+              {!summaryIsDrive && (
+                <a href={session.summaryFileUrl!} download className="text-[12.5px] font-semibold text-brand">
+                  הורדה
+                </a>
+              )}
             </div>
           </div>
         )}

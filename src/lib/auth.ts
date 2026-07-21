@@ -2,9 +2,14 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
-const CLIENT_COOKIE = "hlb_client_session";
+export const CLIENT_COOKIE = "hlb_client_session";
 const ADMIN_COOKIE = "hlb_admin_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+// Clients get logged out after 24h of inactivity — the cookie is
+// refreshed with a new 24h expiry on every request (see middleware.ts),
+// so continued use keeps the session alive indefinitely.
+export const CLIENT_SESSION_TTL_SECONDS = 60 * 60 * 24;
+const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days, fixed from login
 
 function secretKey() {
   const secret = process.env.JWT_SECRET;
@@ -23,11 +28,11 @@ export async function verifyPassword(plain: string, hash: string) {
 type ClientPayload = { kind: "client"; id: string };
 type AdminPayload = { kind: "admin"; id: string };
 
-async function signSession(payload: ClientPayload | AdminPayload) {
+async function signSession(payload: ClientPayload | AdminPayload, ttlSeconds: number) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${ttlSeconds}s`)
     .sign(secretKey());
 }
 
@@ -41,27 +46,39 @@ async function verifySession<T>(token: string | undefined): Promise<T | null> {
   }
 }
 
+// Exported (rather than only used via createClientSession) so
+// middleware.ts — which can't use next/headers' cookies() — can verify
+// and re-sign the client cookie directly on the request/response objects.
+export async function signClientToken(clientId: string) {
+  return signSession({ kind: "client", id: clientId }, CLIENT_SESSION_TTL_SECONDS);
+}
+
+export async function verifyClientToken(token: string | undefined): Promise<string | null> {
+  const payload = await verifySession<ClientPayload>(token);
+  return payload?.kind === "client" ? payload.id : null;
+}
+
 export async function createClientSession(clientId: string) {
-  const token = await signSession({ kind: "client", id: clientId });
+  const token = await signClientToken(clientId);
   const store = await cookies();
   store.set(CLIENT_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_SECONDS,
+    maxAge: CLIENT_SESSION_TTL_SECONDS,
   });
 }
 
 export async function createAdminSession(adminId: string) {
-  const token = await signSession({ kind: "admin", id: adminId });
+  const token = await signSession({ kind: "admin", id: adminId }, ADMIN_SESSION_TTL_SECONDS);
   const store = await cookies();
   store.set(ADMIN_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_SECONDS,
+    maxAge: ADMIN_SESSION_TTL_SECONDS,
   });
 }
 
@@ -77,8 +94,7 @@ export async function destroyAdminSession() {
 
 export async function getClientId(): Promise<string | null> {
   const store = await cookies();
-  const payload = await verifySession<ClientPayload>(store.get(CLIENT_COOKIE)?.value);
-  return payload?.kind === "client" ? payload.id : null;
+  return verifyClientToken(store.get(CLIENT_COOKIE)?.value);
 }
 
 export async function getAdminId(): Promise<string | null> {
