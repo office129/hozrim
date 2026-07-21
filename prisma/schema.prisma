@@ -24,6 +24,7 @@ model Client {
   email         String   @unique
   passwordHash  String
   name          String
+  avatarUrl     String?
   createdAt     DateTime @default(now())
 
   sessions    LessonSession[]

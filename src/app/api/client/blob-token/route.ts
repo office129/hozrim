@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { requireAdmin, isResponse } from "@/lib/guard";
+import { requireClient, isResponse } from "@/lib/guard";
 import { KIND_RULES, ALLOWED_CONTENT_TYPES, UploadKind } from "@/lib/storage";
 
-// Mints short-lived client tokens so the browser can PUT large files
-// directly to Vercel Blob, instead of proxying the bytes through this
-// serverless function (which is capped at ~4.5MB per request).
+// Client-side counterpart of /api/admin/blob-token — only ever used for a
+// client's own profile photo upload, gated by a client (not admin) session.
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
-  if (isResponse(admin)) return admin;
+  const client = await requireClient();
+  if (isResponse(client)) return client;
 
   const body = (await request.json()) as HandleUploadBody;
   try {
@@ -16,7 +15,7 @@ export async function POST(request: NextRequest) {
       body,
       request,
       onBeforeGenerateToken: async (_pathname, clientPayload) => {
-        const kind: UploadKind = clientPayload && clientPayload in KIND_RULES ? (clientPayload as UploadKind) : "file";
+        const kind: UploadKind = clientPayload && clientPayload in KIND_RULES ? (clientPayload as UploadKind) : "image";
         return {
           addRandomSuffix: false,
           maximumSizeInBytes: KIND_RULES[kind].maxBytes,

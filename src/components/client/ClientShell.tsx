@@ -15,9 +15,11 @@ const NAV = [
 
 export function ClientShell({
   clientName,
+  avatarUrl,
   children,
 }: {
   clientName: string;
+  avatarUrl?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -97,15 +99,17 @@ export function ClientShell({
                   <div className="text-on-brand/70 text-[13px]">שלום, {clientName}</div>
                   <div className="font-heading font-bold text-xl text-on-brand mt-0.5">המסע שלך</div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Link
-                    href="/app/profile"
-                    className="md:hidden w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold"
-                  >
-                    {(clientName.trim()[0] || "?").toUpperCase()}
-                  </Link>
-                  <Image src="/assets/logo.png" alt="לוגו" width={40} height={40} className="rounded-full" />
-                </div>
+                <Link
+                  href="/app/profile"
+                  className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold overflow-hidden shrink-0"
+                >
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (clientName.trim()[0] || "?").toUpperCase()
+                  )}
+                </Link>
               </div>
             )}
           </div>

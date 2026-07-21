@@ -13,13 +13,25 @@ const UPLOAD_ROOT = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./sto
 // serverless redeploy, so it's only the fallback when no token is set.
 const useBlobStorage = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 
-export type UploadKind = "video" | "audio" | "pdf" | "file";
+export type UploadKind = "video" | "audio" | "pdf" | "file" | "image";
 
 export const KIND_RULES: Record<UploadKind, { mimePrefixes: string[]; maxBytes: number; exts: string[] }> = {
   video: { mimePrefixes: ["video/"], maxBytes: 1024 * 1024 * 1024, exts: [".mp4", ".mov", ".webm", ".m4v", ".ogv"] },
   audio: { mimePrefixes: ["audio/"], maxBytes: 300 * 1024 * 1024, exts: [".mp3", ".wav", ".m4a", ".ogg", ".aac", ".webm"] },
   pdf: { mimePrefixes: ["application/pdf"], maxBytes: 30 * 1024 * 1024, exts: [".pdf"] },
   file: { mimePrefixes: [], maxBytes: 100 * 1024 * 1024, exts: [] }, // any file type, used by the library "קובץ" slot
+  image: { mimePrefixes: ["image/"], maxBytes: 10 * 1024 * 1024, exts: [".jpg", ".jpeg", ".png", ".webp", ".gif"] },
+};
+
+// Shared between the admin and client blob-token routes so client-side
+// direct uploads get the same content-type gate as the corresponding
+// server-proxied fallback path.
+export const ALLOWED_CONTENT_TYPES: Record<UploadKind, string[] | undefined> = {
+  video: ["video/*"],
+  audio: ["audio/*"],
+  pdf: ["application/pdf"],
+  file: undefined,
+  image: ["image/*"],
 };
 
 export class UploadValidationError extends Error {}
@@ -52,6 +64,16 @@ export async function saveUpload(file: File, kind: UploadKind, scope: string) {
       contentType: file.type || contentTypeFor(storedName),
     });
     return { url: blob.url, fileName: file.name };
+  }
+
+  // Vercel's serverless functions have a read-only filesystem outside
+  // /tmp — writing here would silently crash instead of validating.
+  // If this throws, BLOB_READ_WRITE_TOKEN isn't actually set/visible to
+  // this deployment even though it should be.
+  if (process.env.VERCEL) {
+    throw new UploadValidationError(
+      "אחסון הקבצים לא מוגדר בסביבה הזו — יש לוודא שמשתנה הסביבה BLOB_READ_WRITE_TOKEN קיים ב-Vercel ולבצע דיפלוי מחדש"
+    );
   }
 
   const dir = path.join(UPLOAD_ROOT, scope);

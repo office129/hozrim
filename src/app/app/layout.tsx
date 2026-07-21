@@ -10,5 +10,9 @@ export default async function ClientAppLayout({ children }: { children: React.Re
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) redirect("/login");
 
-  return <ClientShell clientName={client.name}>{children}</ClientShell>;
+  return (
+    <ClientShell clientName={client.name} avatarUrl={client.avatarUrl}>
+      {children}
+    </ClientShell>
+  );
 }

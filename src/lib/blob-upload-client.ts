@@ -3,16 +3,23 @@
 import { upload } from "@vercel/blob/client";
 import type { UploadKind } from "./storage";
 
-let blobEnabled: Promise<boolean> | null = null;
+type Role = "admin" | "client";
 
-function isBlobEnabled(): Promise<boolean> {
-  if (!blobEnabled) {
-    blobEnabled = fetch("/api/admin/blob-status", { credentials: "include" })
+const ENDPOINTS: Record<Role, { status: string; token: string }> = {
+  admin: { status: "/api/admin/blob-status", token: "/api/admin/blob-token" },
+  client: { status: "/api/client/blob-status", token: "/api/client/blob-token" },
+};
+
+const blobEnabled: Partial<Record<Role, Promise<boolean>>> = {};
+
+function isBlobEnabled(role: Role): Promise<boolean> {
+  if (!blobEnabled[role]) {
+    blobEnabled[role] = fetch(ENDPOINTS[role].status, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { enabled: false }))
       .then((data) => !!data.enabled)
       .catch(() => false);
   }
-  return blobEnabled;
+  return blobEnabled[role]!;
 }
 
 // Uploads straight from the browser to Vercel Blob (bypassing our server's
@@ -24,9 +31,10 @@ function isBlobEnabled(): Promise<boolean> {
 export async function tryUploadFileDirect(
   file: File,
   kind: UploadKind,
-  scope: string
+  scope: string,
+  role: Role = "admin"
 ): Promise<{ url: string; fileName: string } | null> {
-  if (!(await isBlobEnabled())) return null;
+  if (!(await isBlobEnabled(role))) return null;
 
   const dot = file.name.lastIndexOf(".");
   const ext = dot >= 0 ? file.name.slice(dot) : "";
@@ -34,7 +42,7 @@ export async function tryUploadFileDirect(
 
   const blob = await upload(pathname, file, {
     access: "public",
-    handleUploadUrl: "/api/admin/blob-token",
+    handleUploadUrl: ENDPOINTS[role].token,
     clientPayload: kind,
   });
   return { url: blob.url, fileName: file.name };
