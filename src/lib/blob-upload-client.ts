@@ -23,7 +23,8 @@ function isBlobEnabled(): Promise<boolean> {
 export async function tryUploadFileDirect(
   file: File,
   kind: UploadKind,
-  scope: string
+  scope: string,
+  onProgress?: (percentage: number) => void
 ): Promise<{ url: string; fileName: string } | null> {
   if (!(await isBlobEnabled())) return null;
 
@@ -35,6 +36,7 @@ export async function tryUploadFileDirect(
     access: "public",
     handleUploadUrl: "/api/admin/blob-token",
     clientPayload: kind,
+    onUploadProgress: onProgress ? ({ percentage }) => onProgress(percentage) : undefined,
   });
   return { url: blob.url, fileName: file.name };
 }

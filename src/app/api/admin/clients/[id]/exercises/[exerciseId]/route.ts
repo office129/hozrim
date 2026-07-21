@@ -15,18 +15,33 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   const data: {
     title?: string;
-    audioFileUrl?: string;
-    audioFileName?: string;
-    pdfFileUrl?: string;
-    pdfFileName?: string;
+    audioFileUrl?: string | null;
+    audioFileName?: string | null;
+    pdfFileUrl?: string | null;
+    pdfFileName?: string | null;
   } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
 
   let previousAudioUrl: string | null = null;
   let previousPdfUrl: string | null = null;
-  const needsExisting = typeof body?.audioFileUrl === "string" || typeof body?.pdfFileUrl === "string";
+  const needsExisting =
+    typeof body?.audioFileUrl === "string" ||
+    typeof body?.pdfFileUrl === "string" ||
+    body?.removeAudio === true ||
+    body?.removePdf === true;
   const existing = needsExisting ? await prisma.exercise.findFirst({ where: { id: exerciseId, clientId } }) : null;
   if (needsExisting && !existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+  if (body?.removeAudio === true) {
+    previousAudioUrl = existing!.audioFileUrl;
+    data.audioFileUrl = null;
+    data.audioFileName = null;
+  }
+  if (body?.removePdf === true) {
+    previousPdfUrl = existing!.pdfFileUrl;
+    data.pdfFileUrl = null;
+    data.pdfFileName = null;
+  }
 
   if (typeof body?.audioFileUrl === "string") {
     if (!isHttpUrl(body.audioFileUrl)) {
@@ -50,8 +65,8 @@ export async function PATCH(
 
   const result = await prisma.exercise.updateMany({ where: { id: exerciseId, clientId }, data });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
-  if (data.audioFileUrl && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
-  if (data.pdfFileUrl && previousPdfUrl) await deleteUploadByUrl(previousPdfUrl);
+  if (data.audioFileUrl !== undefined && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
+  if (data.pdfFileUrl !== undefined && previousPdfUrl) await deleteUploadByUrl(previousPdfUrl);
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   return NextResponse.json({ exercise });

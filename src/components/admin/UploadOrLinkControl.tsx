@@ -8,11 +8,14 @@ export function UploadOrLinkControl({
   uploadLabel,
   onUpload,
   onLink,
+  progress,
 }: {
   accept: string;
   uploadLabel: string;
   onUpload: (file: File) => void | Promise<void>;
   onLink: (url: string) => void | Promise<void>;
+  /** 0-100 upload progress, shown alongside the "uploading" label while set. */
+  progress?: number | null;
 }) {
   const [mode, setMode] = useState<"upload" | "link">("upload");
   const [linkValue, setLinkValue] = useState("");
@@ -60,7 +63,7 @@ export function UploadOrLinkControl({
           uploading ? "opacity-50" : "cursor-pointer"
         }`}
       >
-        {uploading ? "מעלה…" : uploadLabel}
+        {uploading ? (progress != null ? `מעלה… ${progress}%` : "מעלה…") : uploadLabel}
         <input
           type="file"
           accept={accept}

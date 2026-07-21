@@ -73,6 +73,8 @@ function LibraryRow({
   const router = useRouter();
   const [error, setError] = useState("");
   const [fileUploading, setFileUploading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
+  const [audioProgress, setAudioProgress] = useState<number | null>(null);
 
   async function deleteItem() {
     if (!confirm(`למחוק את "${item.title}"?`)) return;
@@ -83,9 +85,11 @@ function LibraryRow({
   async function upload(slot: "video" | "audio" | "file", file: File) {
     setError("");
     if (slot === "file") setFileUploading(true);
+    const setProgress = slot === "video" ? setVideoProgress : slot === "audio" ? setAudioProgress : null;
+    setProgress?.(0);
     try {
       if (slot !== "file") {
-        const direct = await tryUploadFileDirect(file, slot, "library");
+        const direct = await tryUploadFileDirect(file, slot, "library", setProgress ?? undefined);
         if (direct) {
           await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: direct.url, name: direct.fileName });
           router.refresh();
@@ -108,6 +112,7 @@ function LibraryRow({
       setError(err instanceof ApiError ? err.message : "ההעלאה נכשלה");
     } finally {
       if (slot === "file") setFileUploading(false);
+      setProgress?.(null);
     }
   }
 
@@ -118,6 +123,17 @@ function LibraryRow({
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
+    }
+  }
+
+  async function removeSlot(slot: "video" | "audio" | "file") {
+    if (!confirm("למחוק את הקובץ?")) return;
+    setError("");
+    try {
+      await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, remove: true });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
     }
   }
 
@@ -147,7 +163,13 @@ function LibraryRow({
             uploadLabel={item.videoFileName ? "החלפה" : "העלאה"}
             onUpload={(file) => upload("video", file)}
             onLink={(url) => link("video", url)}
+            progress={videoProgress}
           />
+          {item.videoFileName && (
+            <button onClick={() => removeSlot("video")} className="text-[11px] text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
           <div className="text-[11.5px] text-muted">אודיו: {item.audioFileName || "לא הועלה"}</div>
@@ -156,7 +178,13 @@ function LibraryRow({
             uploadLabel={item.audioFileName ? "החלפה" : "העלאה"}
             onUpload={(file) => upload("audio", file)}
             onLink={(url) => link("audio", url)}
+            progress={audioProgress}
           />
+          {item.audioFileName && (
+            <button onClick={() => removeSlot("audio")} className="text-[11px] text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
           <div className="text-[11.5px] text-muted">קובץ: {item.fileName || "לא הועלה"}</div>
@@ -178,6 +206,11 @@ function LibraryRow({
               }}
             />
           </label>
+          {item.fileName && (
+            <button onClick={() => removeSlot("file")} className="text-[11px] text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
       </div>
       {error && <div className="text-danger text-xs">{error}</div>}

@@ -16,24 +16,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: Record<string, string> = {};
+  const data: Record<string, string | null> = {};
 
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
 
   let previousUrl: string | null = null;
   let hasLinkUpdate = false;
   if (body?.slot === "video" || body?.slot === "audio" || body?.slot === "file") {
-    if (typeof body?.url !== "string" || !isHttpUrl(body.url)) {
-      return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
-    }
     const slot: "video" | "audio" | "file" = body.slot;
     const existing = await prisma.libraryItem.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
     const fields = LINK_SLOTS[slot];
     hasLinkUpdate = true;
     previousUrl = existing[fields.urlField];
-    data[fields.urlField] = body.url;
-    data[fields.nameField] = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : body.url;
+
+    if (body?.remove === true) {
+      data[fields.urlField] = null;
+      data[fields.nameField] = null;
+    } else {
+      if (typeof body?.url !== "string" || !isHttpUrl(body.url)) {
+        return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
+      }
+      data[fields.urlField] = body.url;
+      data[fields.nameField] = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : body.url;
+    }
   }
 
   if (Object.keys(data).length === 0) {

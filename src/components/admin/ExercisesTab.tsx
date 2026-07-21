@@ -52,11 +52,13 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
   const router = useRouter();
   const [error, setError] = useState("");
   const [pdfUploading, setPdfUploading] = useState(false);
+  const [audioProgress, setAudioProgress] = useState<number | null>(null);
 
   async function uploadAudio(file: File) {
     setError("");
+    setAudioProgress(0);
     try {
-      const direct = await tryUploadFileDirect(file, "audio", `clients/${clientId}`);
+      const direct = await tryUploadFileDirect(file, "audio", `clients/${clientId}`, setAudioProgress);
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
           audioFileUrl: direct.url,
@@ -69,6 +71,8 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
       console.error("Audio upload failed", err);
       setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
       return;
+    } finally {
+      setAudioProgress(null);
     }
     if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
       setError(
@@ -119,6 +123,28 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     router.refresh();
   }
 
+  async function deleteAudio() {
+    if (!confirm("למחוק את קובץ האודיו?")) return;
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { removeAudio: true });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
+    }
+  }
+
+  async function deletePdf() {
+    if (!confirm("למחוק את קובץ ה-PDF?")) return;
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { removePdf: true });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
+    }
+  }
+
   return (
     <div className="bg-card border border-border rounded-2xl px-4 py-3.5 flex flex-col gap-3">
       <div className="flex items-center gap-3.5">
@@ -142,7 +168,13 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
             uploadLabel={exercise.audioFileName ? "החלפה" : "העלאה"}
             onUpload={uploadAudio}
             onLink={linkAudio}
+            progress={audioProgress}
           />
+          {exercise.audioFileName && (
+            <button onClick={deleteAudio} className="text-[11px] text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 bg-tile rounded-[9px] px-2.5 py-1.5">
           <div className="text-[11.5px] text-muted">PDF: {exercise.pdfFileName || "לא הועלה"}</div>
@@ -164,6 +196,11 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
               }}
             />
           </label>
+          {exercise.pdfFileName && (
+            <button onClick={deletePdf} className="text-[11px] text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
       </div>
 

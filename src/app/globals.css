@@ -92,3 +92,21 @@ textarea::placeholder {
 .animate-fade-up {
   animation: fadeUp 0.3s ease;
 }
+
+/* Mobile viewport height, measured in JS (see useAppViewportHeight) rather
+   than trusted to svh/dvh alone — real mobile browsers are inconsistent
+   about recalculating CSS viewport units on a hard page reload, which was
+   causing the bottom nav to sit just below the visible area until the
+   user scrolled. --app-vh falls back to 1svh before the JS measurement
+   runs on mount. */
+.min-h-app-svh {
+  min-height: calc(var(--app-vh, 1svh) * 100);
+}
+.h-app-svh {
+  height: calc(var(--app-vh, 1svh) * 100);
+}
+@media (min-width: 640px) {
+  .h-app-svh {
+    height: auto;
+  }
+}

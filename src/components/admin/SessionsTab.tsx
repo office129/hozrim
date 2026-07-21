@@ -71,6 +71,7 @@ function SessionRow({
   const [summary, setSummary] = useState(session.summaryText || "");
   const [error, setError] = useState("");
   const [summaryUploading, setSummaryUploading] = useState(false);
+  const [mediaProgress, setMediaProgress] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const summaryFileInputRef = useRef<HTMLInputElement>(null);
   const [pendingMediaType, setPendingMediaType] = useState<"video" | "audio">(
@@ -89,8 +90,9 @@ function SessionRow({
 
   async function handleMediaFile(file: File, mediaType: "video" | "audio") {
     setError("");
+    setMediaProgress(0);
     try {
-      const direct = await tryUploadFileDirect(file, mediaType, `clients/${clientId}`);
+      const direct = await tryUploadFileDirect(file, mediaType, `clients/${clientId}`, setMediaProgress);
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
           fileUrl: direct.url,
@@ -104,6 +106,8 @@ function SessionRow({
       console.error("Media upload failed", err);
       setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
       return;
+    } finally {
+      setMediaProgress(null);
     }
     if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
       setError(
@@ -155,6 +159,17 @@ function SessionRow({
     router.refresh();
   }
 
+  async function deleteSummaryFile() {
+    if (!confirm("למחוק את קובץ ה-PDF?")) return;
+    setError("");
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", { removeSummaryFile: true });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
+    }
+  }
+
   return (
     <div
       {...dragProps}
@@ -204,6 +219,7 @@ function SessionRow({
             uploadLabel={session.fileName ? "החלפת קובץ" : "העלאת הקלטה"}
             onUpload={(file) => handleMediaFile(file, pendingMediaType)}
             onLink={(url) => handleMediaLink(url, pendingMediaType)}
+            progress={mediaProgress}
           />
         </div>
       </div>
@@ -236,7 +252,12 @@ function SessionRow({
               }}
             />
           </label>
-          <div className="text-xs text-muted">{session.summaryFileName || "לא הועלה קובץ PDF"}</div>
+          <div className="flex-1 text-xs text-muted truncate">{session.summaryFileName || "לא הועלה קובץ PDF"}</div>
+          {session.summaryFileName && (
+            <button onClick={deleteSummaryFile} className="text-xs text-danger underline cursor-pointer shrink-0">
+              מחיקה
+            </button>
+          )}
         </div>
       </div>
 

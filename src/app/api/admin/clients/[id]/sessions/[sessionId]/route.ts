@@ -17,10 +17,10 @@ export async function PATCH(
     title?: string;
     summaryText?: string;
     mediaType?: string;
-    fileUrl?: string;
-    fileName?: string;
-    summaryFileUrl?: string;
-    summaryFileName?: string;
+    fileUrl?: string | null;
+    fileName?: string | null;
+    summaryFileUrl?: string | null;
+    summaryFileName?: string | null;
   } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
   if (typeof body?.summaryText === "string") data.summaryText = body.summaryText;
@@ -28,11 +28,18 @@ export async function PATCH(
 
   let previousFileUrl: string | null = null;
   let previousSummaryFileUrl: string | null = null;
-  const needsExisting = typeof body?.fileUrl === "string" || typeof body?.summaryFileUrl === "string";
+  const needsExisting =
+    typeof body?.fileUrl === "string" || typeof body?.summaryFileUrl === "string" || body?.removeSummaryFile === true;
   const existing = needsExisting
     ? await prisma.lessonSession.findFirst({ where: { id: sessionId, clientId } })
     : null;
   if (needsExisting && !existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+  if (body?.removeSummaryFile === true) {
+    previousSummaryFileUrl = existing!.summaryFileUrl;
+    data.summaryFileUrl = null;
+    data.summaryFileName = null;
+  }
 
   if (typeof body?.fileUrl === "string") {
     if (!isHttpUrl(body.fileUrl)) {
@@ -60,8 +67,8 @@ export async function PATCH(
     data,
   });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
-  if (data.fileUrl && previousFileUrl) await deleteUploadByUrl(previousFileUrl);
-  if (data.summaryFileUrl && previousSummaryFileUrl) await deleteUploadByUrl(previousSummaryFileUrl);
+  if (data.fileUrl !== undefined && previousFileUrl) await deleteUploadByUrl(previousFileUrl);
+  if (data.summaryFileUrl !== undefined && previousSummaryFileUrl) await deleteUploadByUrl(previousSummaryFileUrl);
 
   const session = await prisma.lessonSession.findUnique({ where: { id: sessionId } });
   return NextResponse.json({ session });
