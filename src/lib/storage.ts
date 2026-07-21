@@ -23,17 +23,6 @@ export const KIND_RULES: Record<UploadKind, { mimePrefixes: string[]; maxBytes: 
   image: { mimePrefixes: ["image/"], maxBytes: 10 * 1024 * 1024, exts: [".jpg", ".jpeg", ".png", ".webp", ".gif"] },
 };
 
-// Shared between the admin and client blob-token routes so client-side
-// direct uploads get the same content-type gate as the corresponding
-// server-proxied fallback path.
-export const ALLOWED_CONTENT_TYPES: Record<UploadKind, string[] | undefined> = {
-  video: ["video/*"],
-  audio: ["audio/*"],
-  pdf: ["application/pdf"],
-  file: undefined,
-  image: ["image/*"],
-};
-
 export class UploadValidationError extends Error {}
 
 function extFromName(name: string) {
