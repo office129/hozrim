@@ -13,25 +13,45 @@ export async function PATCH(
   const { id: clientId, exerciseId } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: { title?: string; audioFileUrl?: string; audioFileName?: string } = {};
+  const data: {
+    title?: string;
+    audioFileUrl?: string;
+    audioFileName?: string;
+    pdfFileUrl?: string;
+    pdfFileName?: string;
+  } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
 
   let previousAudioUrl: string | null = null;
+  let previousPdfUrl: string | null = null;
+  const needsExisting = typeof body?.audioFileUrl === "string" || typeof body?.pdfFileUrl === "string";
+  const existing = needsExisting ? await prisma.exercise.findFirst({ where: { id: exerciseId, clientId } }) : null;
+  if (needsExisting && !existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
   if (typeof body?.audioFileUrl === "string") {
     if (!isHttpUrl(body.audioFileUrl)) {
       return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
     }
-    const existing = await prisma.exercise.findFirst({ where: { id: exerciseId, clientId } });
-    if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
-    previousAudioUrl = existing.audioFileUrl;
+    previousAudioUrl = existing!.audioFileUrl;
     data.audioFileUrl = body.audioFileUrl;
     data.audioFileName =
       typeof body?.audioFileName === "string" && body.audioFileName.trim() ? body.audioFileName.trim() : body.audioFileUrl;
   }
 
+  if (typeof body?.pdfFileUrl === "string") {
+    if (!isHttpUrl(body.pdfFileUrl)) {
+      return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
+    }
+    previousPdfUrl = existing!.pdfFileUrl;
+    data.pdfFileUrl = body.pdfFileUrl;
+    data.pdfFileName =
+      typeof body?.pdfFileName === "string" && body.pdfFileName.trim() ? body.pdfFileName.trim() : body.pdfFileUrl;
+  }
+
   const result = await prisma.exercise.updateMany({ where: { id: exerciseId, clientId }, data });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
   if (data.audioFileUrl && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
+  if (data.pdfFileUrl && previousPdfUrl) await deleteUploadByUrl(previousPdfUrl);
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   return NextResponse.json({ exercise });

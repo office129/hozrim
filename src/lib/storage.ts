@@ -15,7 +15,7 @@ const useBlobStorage = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 
 export type UploadKind = "video" | "audio" | "pdf" | "file";
 
-const KIND_RULES: Record<UploadKind, { mimePrefixes: string[]; maxBytes: number; exts: string[] }> = {
+export const KIND_RULES: Record<UploadKind, { mimePrefixes: string[]; maxBytes: number; exts: string[] }> = {
   video: { mimePrefixes: ["video/"], maxBytes: 1024 * 1024 * 1024, exts: [".mp4", ".mov", ".webm", ".m4v", ".ogv"] },
   audio: { mimePrefixes: ["audio/"], maxBytes: 300 * 1024 * 1024, exts: [".mp3", ".wav", ".m4a", ".ogg", ".aac", ".webm"] },
   pdf: { mimePrefixes: ["application/pdf"], maxBytes: 30 * 1024 * 1024, exts: [".pdf"] },

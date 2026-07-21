@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
 import { UploadOrLinkControl } from "./UploadOrLinkControl";
@@ -52,6 +53,20 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
 
   async function uploadAudio(file: File) {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, "audio", `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
+          audioFileUrl: direct.url,
+          audioFileName: direct.fileName,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     try {
@@ -74,6 +89,20 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
 
   async function uploadPdf(file: File) {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
+          pdfFileUrl: direct.url,
+          pdfFileName: direct.fileName,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     try {

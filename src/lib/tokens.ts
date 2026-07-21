@@ -1,9 +1,17 @@
-import { randomBytes, randomUUID, createHash } from "crypto";
+import { randomInt, randomUUID, createHash } from "crypto";
 
-export function generateTempPassword() {
-  // 8 base32-ish chars, easy to read aloud/type — this is a one-time
-  // temporary password the client changes from their profile screen.
-  return randomBytes(6).toString("base64url").slice(0, 8);
+// Excludes look-alike characters (0/O, 1/l/I) and any separator character
+// (-, _) that browsers treat as a word boundary when double-click-selecting
+// text — a dash in the password meant a double-click copy from the admin
+// panel's banner could silently grab only half of it.
+const TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+export function generateTempPassword(length = 10) {
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += TEMP_PASSWORD_ALPHABET[randomInt(TEMP_PASSWORD_ALPHABET.length)];
+  }
+  return out;
 }
 
 export function generateResetToken() {

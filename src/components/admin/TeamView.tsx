@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiSend, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/Button";
 import { InitialBadge } from "@/components/icons";
+import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { NewAdminModal } from "./NewAdminModal";
 
 type AdminData = { id: string; email: string; name: string };
@@ -42,7 +43,7 @@ export function TeamView({ currentAdminId, admins }: { currentAdminId: string; a
           {banner.tempPassword ? (
             <>
               שירות מייל לא מוגדר — יש למסור ידנית את הסיסמה הזמנית:{" "}
-              <b className="font-mono">{banner.tempPassword}</b>
+              <CopyableSecret value={banner.tempPassword} />
             </>
           ) : (
             "פרטי ההתחברות נשלחו לאימייל שהוזן."

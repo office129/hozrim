@@ -7,6 +7,7 @@ import { isHttpUrl } from "@/lib/external-links";
 const LINK_SLOTS = {
   video: { urlField: "videoFileUrl", nameField: "videoFileName" },
   audio: { urlField: "audioFileUrl", nameField: "audioFileName" },
+  file: { urlField: "fileUrl", nameField: "fileName" },
 } as const;
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,11 +22,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   let previousUrl: string | null = null;
   let hasLinkUpdate = false;
-  if (body?.slot === "video" || body?.slot === "audio") {
+  if (body?.slot === "video" || body?.slot === "audio" || body?.slot === "file") {
     if (typeof body?.url !== "string" || !isHttpUrl(body.url)) {
       return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
     }
-    const slot: "video" | "audio" = body.slot;
+    const slot: "video" | "audio" | "file" = body.slot;
     const existing = await prisma.libraryItem.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
     const fields = LINK_SLOTS[slot];

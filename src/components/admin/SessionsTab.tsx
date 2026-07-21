@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
@@ -86,6 +87,21 @@ function SessionRow({
 
   async function handleMediaFile(file: File, mediaType: "video" | "audio") {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, mediaType, `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
+          fileUrl: direct.url,
+          fileName: direct.fileName,
+          mediaType,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     form.append("mediaType", mediaType);
@@ -109,6 +125,20 @@ function SessionRow({
 
   async function handleSummaryFile(file: File) {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, "pdf", `clients/${clientId}`);
+      if (direct) {
+        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
+          summaryFileUrl: direct.url,
+          summaryFileName: direct.fileName,
+        });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     try {

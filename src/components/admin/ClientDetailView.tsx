@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
 import { InitialBadge } from "@/components/icons";
+import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { InlineEditableText } from "./InlineEditableText";
 import { SessionsTab } from "./SessionsTab";
 import { ExercisesTab } from "./ExercisesTab";
@@ -36,6 +37,20 @@ const TABS = [
 export function ClientDetailView({ client }: { client: ClientDetail }) {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("sessions");
+  const [banner, setBanner] = useState<{ emailSent: boolean; tempPassword?: string } | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  async function resetPassword() {
+    if (!confirm(`להנפיק סיסמה זמנית חדשה ל־${client.name}? הסיסמה הקודמת תפסיק לעבוד.`)) return;
+    setResetting(true);
+    setBanner(null);
+    try {
+      const data = await apiSend(`/api/admin/clients/${client.id}/reset-password`, "POST");
+      setBanner(data);
+    } finally {
+      setResetting(false);
+    }
+  }
 
   return (
     <div className="animate-fade-up">
@@ -45,7 +60,7 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
 
       <div className="flex items-center gap-3.5 mb-6">
         <InitialBadge label={client.name.trim()[0] || "?"} size={52} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <InlineEditableText
             value={client.name}
             textClassName="font-heading font-bold text-xl text-ink"
@@ -66,7 +81,30 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
             />
           </div>
         </div>
+        <button
+          onClick={resetPassword}
+          disabled={resetting}
+          className="text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-lg shrink-0 cursor-pointer disabled:opacity-50"
+        >
+          {resetting ? "יוצר/ת…" : "סיסמה זמנית חדשה"}
+        </button>
       </div>
+
+      {banner && (
+        <div className="mb-5 rounded-xl border border-brand-soft-2 bg-brand-soft-2 px-4 py-3 text-sm text-ink">
+          {banner.tempPassword ? (
+            <>
+              שירות מייל לא מוגדר — יש למסור ידנית את הסיסמה הזמנית החדשה:{" "}
+              <CopyableSecret value={banner.tempPassword} />
+            </>
+          ) : (
+            "הסיסמה החדשה נשלחה לאימייל של הלקוח/ה."
+          )}
+          <button className="underline mr-3" onClick={() => setBanner(null)}>
+            סגירה
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-1.5 border-b border-border mb-5">
         {TABS.map((t) => (

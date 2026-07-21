@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
@@ -79,6 +80,17 @@ function LibraryRow({
 
   async function upload(slot: "video" | "audio" | "file", file: File) {
     setError("");
+    try {
+      const direct = await tryUploadFileDirect(file, slot, "library");
+      if (direct) {
+        await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: direct.url, name: direct.fileName });
+        router.refresh();
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ההעלאה נכשלה");
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     form.append("slot", slot);
