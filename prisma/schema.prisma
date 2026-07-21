@@ -20,12 +20,13 @@ model Admin {
 }
 
 model Client {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  name          String
-  avatarUrl     String?
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  name              String
+  avatarUrl         String?
+  hasSeenProfileTip Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
   sessions    LessonSession[]
   exercises   Exercise[]

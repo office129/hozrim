@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,21 +18,29 @@ const NAV = [
 export function ClientShell({
   clientName,
   avatarUrl,
+  showProfileTip,
   children,
 }: {
   clientName: string;
   avatarUrl?: string | null;
+  showProfileTip?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const isProfile = pathname === "/app/profile";
+  const [tipVisible, setTipVisible] = useState(!!showProfileTip);
   useAppViewportHeight();
 
   async function logout() {
     await apiSend("/api/client/logout", "POST");
     router.push("/login");
     router.refresh();
+  }
+
+  function dismissTip() {
+    setTipVisible(false);
+    apiSend("/api/client/me", "PATCH", { profileTipSeen: true });
   }
 
   const items = NAV.map((item) => ({
@@ -101,17 +110,36 @@ export function ClientShell({
                   <div className="text-on-brand/70 text-[13px]">שלום, {clientName}</div>
                   <div className="font-heading font-bold text-xl text-on-brand mt-0.5">המסע שלך</div>
                 </div>
-                <Link
-                  href="/app/profile"
-                  className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold overflow-hidden shrink-0"
-                >
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    (clientName.trim()[0] || "?").toUpperCase()
+                <div className="relative shrink-0">
+                  <Link
+                    href="/app/profile"
+                    onClick={() => tipVisible && dismissTip()}
+                    className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold overflow-hidden shrink-0"
+                  >
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (clientName.trim()[0] || "?").toUpperCase()
+                    )}
+                  </Link>
+                  {tipVisible && (
+                    <div className="absolute top-[calc(100%+10px)] left-0 z-20 w-[210px] animate-fade-up">
+                      <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
+                      <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
+                        <div className="text-[13px] text-ink leading-relaxed">
+                          כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה בכל שלב.
+                        </div>
+                        <button
+                          onClick={dismissTip}
+                          className="mt-2 text-[12.5px] font-semibold text-brand cursor-pointer"
+                        >
+                          הבנתי
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </Link>
+                </div>
               </div>
             )}
           </div>

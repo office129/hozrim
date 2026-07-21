@@ -20,8 +20,9 @@ export async function PATCH(req: NextRequest) {
   if (isResponse(clientId)) return clientId;
 
   const body = await req.json().catch(() => null);
-  const data: { name?: string; passwordHash?: string; avatarUrl?: string } = {};
+  const data: { name?: string; passwordHash?: string; avatarUrl?: string; hasSeenProfileTip?: boolean } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
+  if (body?.profileTipSeen === true) data.hasSeenProfileTip = true;
   if (typeof body?.newPassword === "string" && body.newPassword.length > 0) {
     if (body.newPassword.length < 6) {
       return NextResponse.json({ error: "הסיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });
