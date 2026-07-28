@@ -33,6 +33,21 @@ model Client {
   exercises   Exercise[]
   journal     JournalEntry[]
   resetTokens PasswordResetToken[]
+  passkeys    ClientPasskey[]
+}
+
+// A registered biometric/fingerprint login (WebAuthn credential) — the
+// client can add one from their profile after logging in with a password,
+// then use it to sign in afterward without typing anything.
+model ClientPasskey {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String
+  counter      Int      @default(0)
+  transports   String?
+  createdAt    DateTime @default(now())
 }
 
 // A single meeting/lesson in a client's personal process — the

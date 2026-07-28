@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 import { apiSend, ApiError } from "@/lib/api-client";
 import { PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +15,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webauthnSupported, setWebauthnSupported] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  useEffect(() => {
+    setWebauthnSupported(browserSupportsWebAuthn());
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,6 +34,23 @@ export default function LoginPage() {
       setError(err instanceof ApiError ? err.message : "משהו השתבש");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onPasskeyLogin() {
+    setError("");
+    setPasskeyLoading(true);
+    try {
+      const optionsJSON = await apiSend("/api/client/passkey/login-options", "POST");
+      const authResp = await startAuthentication({ optionsJSON });
+      await apiSend("/api/client/passkey/login", "POST", authResp);
+      router.push("/app/home");
+      router.refresh();
+    } catch (err) {
+      console.error("Passkey login failed", err);
+      setError(err instanceof ApiError ? err.message : "הכניסה בטביעת אצבע נכשלה, נסה/י עם סיסמה");
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -70,6 +94,24 @@ export default function LoginPage() {
           <Link href="/forgot-password" className="text-[13px] text-ink-soft underline mt-1">
             שכחתי סיסמה
           </Link>
+
+          {webauthnSupported && (
+            <>
+              <div className="flex items-center gap-2.5 text-ink-soft text-xs my-1">
+                <div className="flex-1 h-px bg-border-strong" />
+                או
+                <div className="flex-1 h-px bg-border-strong" />
+              </div>
+              <button
+                type="button"
+                onClick={onPasskeyLogin}
+                disabled={passkeyLoading}
+                className="w-full py-4 rounded-2xl border border-brand text-brand text-base font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {passkeyLoading ? "מתחבר/ת…" : "כניסה בטביעת אצבע"}
+              </button>
+            </>
+          )}
         </form>
       </div>
     </div>

@@ -128,7 +128,8 @@ export function ClientShell({
                       <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
                       <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
                         <div className="text-[13px] text-ink leading-relaxed">
-                          כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה בכל שלב.
+                          כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה, וגם להוסיף כניסה
+                          בטביעת אצבע — בכל שלב.
                         </div>
                         <button
                           onClick={dismissTip}

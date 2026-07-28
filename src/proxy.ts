@@ -10,6 +10,8 @@ const SKIP_PATHS = new Set([
   "/api/client/logout",
   "/api/client/forgot-password",
   "/api/client/reset-password",
+  "/api/client/passkey/login-options",
+  "/api/client/passkey/login",
 ]);
 
 export async function proxy(request: NextRequest) {
