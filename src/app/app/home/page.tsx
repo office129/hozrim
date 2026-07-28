@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getClientId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Waveform, DocIcon } from "@/components/icons";
@@ -6,9 +7,13 @@ import { Waveform, DocIcon } from "@/components/icons";
 export default async function HomePage() {
   const clientId = (await getClientId())!;
   const [client, sessions] = await Promise.all([
-    prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { totalSessions: true } }),
+    prisma.client.findUnique({ where: { id: clientId }, select: { totalSessions: true } }),
     prisma.lessonSession.findMany({ where: { clientId }, orderBy: { number: "asc" } }),
   ]);
+  // A stale session cookie can outlive the client it belonged to (e.g. the
+  // account was deleted in admin) — the layout normally catches this, but
+  // don't crash here either if it slips through.
+  if (!client) redirect("/login");
 
   const totalCount = client.totalSessions;
   const completedCount = sessions.filter((s) => s.completed).length;

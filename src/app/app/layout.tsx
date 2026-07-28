@@ -7,6 +7,11 @@ export default async function ClientAppLayout({ children }: { children: React.Re
   const clientId = await getClientId();
   if (!clientId) redirect("/login");
 
+  // The account this session belonged to may no longer exist (deleted in
+  // admin) — redirect rather than crash. Cookies can only be cleared from a
+  // Route Handler/Server Action, not a Server Component like this layout,
+  // so the stale cookie itself is left to expire naturally; requireClient()
+  // clears it the moment any API call is made with it.
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) redirect("/login");
 
