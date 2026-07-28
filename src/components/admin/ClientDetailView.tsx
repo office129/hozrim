@@ -40,6 +40,7 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("sessions");
   const [banner, setBanner] = useState<{ emailSent: boolean; tempPassword?: string } | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function resetPassword() {
     if (!confirm(`להנפיק סיסמה זמנית חדשה ל־${client.name}? הסיסמה הקודמת תפסיק לעבוד.`)) return;
@@ -50,6 +51,25 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
       setBanner(data);
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function deleteClient() {
+    if (
+      !confirm(
+        `למחוק לצמיתות את ${client.name}? כל הפגישות, ההקלטות, התרגולים והיומן שלו/ה יימחקו ולא ניתן יהיה לשחזר. הפעולה בלתי הפיכה.`
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await apiSend(`/api/admin/clients/${client.id}`, "DELETE");
+      router.push("/admin/clients");
+      router.refresh();
+    } catch {
+      setDeleting(false);
+      alert("המחיקה נכשלה, נסה/י שוב");
     }
   }
 
@@ -88,6 +108,13 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
           className="text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-lg shrink-0 cursor-pointer disabled:opacity-50"
         >
           {resetting ? "יוצר/ת…" : "סיסמה זמנית חדשה"}
+        </button>
+        <button
+          onClick={deleteClient}
+          disabled={deleting}
+          className="text-[12.5px] font-semibold text-danger border border-danger px-3 py-1.5 rounded-lg shrink-0 cursor-pointer disabled:opacity-50"
+        >
+          {deleting ? "מוחק/ת…" : "מחיקת לקוח/ה"}
         </button>
       </div>
 

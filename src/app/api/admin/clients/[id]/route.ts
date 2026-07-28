@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
+import { deleteUploadByUrl } from "@/lib/storage";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -60,6 +61,26 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id } = await params;
+
+  const client = await prisma.client.findUnique({
+    where: { id },
+    include: { sessions: true, exercises: true },
+  });
+  if (!client) return NextResponse.json({ error: "לא נמצא/ה" }, { status: 404 });
+
+  // Deleting the row cascades to sessions/exercises/journal/passkeys in the
+  // DB, but the actual uploaded files live outside it (Blob storage or
+  // local disk) and won't clean themselves up.
+  await deleteUploadByUrl(client.avatarUrl);
+  for (const s of client.sessions) {
+    await deleteUploadByUrl(s.fileUrl);
+    await deleteUploadByUrl(s.summaryFileUrl);
+  }
+  for (const e of client.exercises) {
+    await deleteUploadByUrl(e.audioFileUrl);
+    await deleteUploadByUrl(e.pdfFileUrl);
+  }
+
   await prisma.client.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
