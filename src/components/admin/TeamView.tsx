@@ -6,6 +6,7 @@ import { apiSend, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/Button";
 import { InitialBadge } from "@/components/icons";
 import { CopyableSecret } from "@/components/ui/CopyableSecret";
+import { InlineEditableText } from "./InlineEditableText";
 import { NewAdminModal } from "./NewAdminModal";
 
 type AdminData = { id: string; email: string; name: string };
@@ -24,6 +25,16 @@ export function TeamView({ currentAdminId, admins }: { currentAdminId: string; a
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
+    }
+  }
+
+  async function saveField(admin: AdminData, field: "name" | "email", next: string) {
+    setError("");
+    try {
+      await apiSend(`/api/admin/team/${admin.id}`, "PATCH", { [field]: next });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "השמירה נכשלה");
     }
   }
 
@@ -64,10 +75,20 @@ export function TeamView({ currentAdminId, admins }: { currentAdminId: string; a
           >
             <InitialBadge label={admin.name.trim()[0] || "?"} />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-ink truncate">
-                {admin.name} {admin.id === currentAdminId && <span className="text-muted font-normal">(את/ה)</span>}
+              <div className="flex items-center gap-1.5">
+                <InlineEditableText
+                  value={admin.name}
+                  textClassName="text-sm font-semibold text-ink truncate"
+                  onSave={(next) => saveField(admin, "name", next)}
+                />
+                {admin.id === currentAdminId && <span className="text-muted text-xs shrink-0">(את/ה)</span>}
               </div>
-              <div className="text-xs text-muted truncate">{admin.email}</div>
+              <InlineEditableText
+                value={admin.email}
+                textClassName="text-xs text-muted truncate"
+                inputClassName="text-xs"
+                onSave={(next) => saveField(admin, "email", next)}
+              />
             </div>
             {admin.id !== currentAdminId && admins.length > 1 && (
               <button
