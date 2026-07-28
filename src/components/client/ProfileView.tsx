@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
+import { resizeAvatarFile } from "@/lib/resizeImage";
 import { Input, Label, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -49,8 +50,9 @@ export function ProfileView({
     setError("");
     setAvatarUploading(true);
     try {
+      const resized = await resizeAvatarFile(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", resized);
       const data = await apiUpload("/api/client/me/avatar", form);
       setAvatar(data.avatarUrl);
       router.refresh();
