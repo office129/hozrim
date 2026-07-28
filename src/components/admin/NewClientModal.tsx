@@ -14,15 +14,23 @@ export function NewClientModal({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [totalSessionsInput, setTotalSessionsInput] = useState("6");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function clampTotalSessions() {
+    const n = Math.max(1, Math.min(30, parseInt(totalSessionsInput, 10) || 6));
+    setTotalSessionsInput(String(n));
+    return n;
+  }
 
   async function submit() {
     if (!name.trim() || !email.trim()) return;
     setError("");
     setLoading(true);
     try {
-      const data = await apiSend("/api/admin/clients", "POST", { name, email });
+      const totalSessions = clampTotalSessions();
+      const data = await apiSend("/api/admin/clients", "POST", { name, email, totalSessions });
       onCreated({ tempPassword: data.tempPassword, name });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "משהו השתבש");
@@ -54,6 +62,20 @@ export function NewClientModal({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="אימייל להתחברות"
             />
+          </div>
+          <div>
+            <Label>כמה פגישות בתהליך שלו/ה</Label>
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={totalSessionsInput}
+              onChange={(e) => setTotalSessionsInput(e.target.value)}
+              onBlur={clampTotalSessions}
+            />
+            <div className="text-[11px] text-muted-2 mt-1">
+              רק מספר להצגה ללקוח/ה — לא יוצר שיעורים אוטומטית
+            </div>
           </div>
           {error && <div className="text-danger text-[13px]">{error}</div>}
         </div>

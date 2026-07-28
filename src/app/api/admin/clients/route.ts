@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const totalSessions = Math.max(1, Math.min(30, parseInt(body?.totalSessions, 10) || 6));
 
   if (!name || !email) {
     return NextResponse.json({ error: "נא למלא שם ואימייל" }, { status: 400 });
@@ -34,11 +35,13 @@ export async function POST(req: NextRequest) {
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
-  // No sessions are created here — a session represents an actual
-  // recording that goes live after a real meeting, so the admin adds
-  // each one manually (SessionsTab's "+ הוספת שיעור") as it happens.
+  // totalSessions is just the planned/purchased count shown to the client
+  // as a progress target ("X מתוך Y") — it does NOT create any session
+  // rows. A session represents an actual recording that goes live after a
+  // real meeting, so the admin adds each one manually (SessionsTab's
+  // "+ הוספת שיעור") as it happens.
   const client = await prisma.client.create({
-    data: { name, email, passwordHash },
+    data: { name, email, passwordHash, totalSessions },
   });
 
   let emailSent = false;

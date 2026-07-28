@@ -5,12 +5,12 @@ import { Waveform, DocIcon } from "@/components/icons";
 
 export default async function HomePage() {
   const clientId = (await getClientId())!;
-  const sessions = await prisma.lessonSession.findMany({
-    where: { clientId },
-    orderBy: { number: "asc" },
-  });
+  const [client, sessions] = await Promise.all([
+    prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { totalSessions: true } }),
+    prisma.lessonSession.findMany({ where: { clientId }, orderBy: { number: "asc" } }),
+  ]);
 
-  const totalCount = sessions.length;
+  const totalCount = client.totalSessions;
   const completedCount = sessions.filter((s) => s.completed).length;
   const current = sessions.find((s) => !s.completed) || sessions[sessions.length - 1] || null;
   const progressPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;

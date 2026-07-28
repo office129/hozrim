@@ -14,7 +14,7 @@ export async function GET() {
     orderBy: { number: "asc" },
   });
 
-  const totalCount = sessions.length;
+  const totalCount = client.totalSessions;
   const completedCount = sessions.filter((s) => s.completed).length;
   const current = sessions.find((s) => !s.completed) || sessions[sessions.length - 1] || null;
 

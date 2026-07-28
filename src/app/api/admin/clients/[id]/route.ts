@@ -36,9 +36,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: { name?: string; email?: string } = {};
+  const data: { name?: string; email?: string; totalSessions?: number } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (typeof body?.email === "string" && body.email.trim()) data.email = body.email.trim().toLowerCase();
+  if (body?.totalSessions !== undefined) {
+    const parsed = parseInt(body.totalSessions, 10);
+    if (!Number.isFinite(parsed)) return NextResponse.json({ error: "מספר לא תקין" }, { status: 400 });
+    data.totalSessions = Math.max(1, Math.min(30, parsed));
+  }
 
   if (data.email) {
     const dup = await prisma.client.findFirst({ where: { email: data.email, NOT: { id } } });
@@ -46,7 +51,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const client = await prisma.client.update({ where: { id }, data });
-  return NextResponse.json({ client: { id: client.id, name: client.name, email: client.email } });
+  return NextResponse.json({
+    client: { id: client.id, name: client.name, email: client.email, totalSessions: client.totalSessions },
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

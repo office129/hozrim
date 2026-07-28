@@ -20,6 +20,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         id: client.id,
         name: client.name,
         email: client.email,
+        totalSessions: client.totalSessions,
         sessions: client.sessions,
         exercises: client.exercises,
         notes: client.sessions

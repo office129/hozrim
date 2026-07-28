@@ -15,6 +15,7 @@ type ClientDetail = {
   id: string;
   name: string;
   email: string;
+  totalSessions: number;
   sessions: {
     id: string;
     number: number;
@@ -88,6 +89,20 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
         >
           {resetting ? "יוצר/ת…" : "סיסמה זמנית חדשה"}
         </button>
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-6 -mt-3">
+        <span className="text-[13px] text-muted">מספר פגישות בתהליך:</span>
+        <InlineEditableText
+          value={String(client.totalSessions)}
+          textClassName="text-[13px] font-semibold text-ink"
+          inputClassName="text-[13px] w-16"
+          onSave={async (next) => {
+            const parsed = Math.max(1, Math.min(30, parseInt(next, 10) || client.totalSessions));
+            await apiSend(`/api/admin/clients/${client.id}`, "PATCH", { totalSessions: parsed });
+            router.refresh();
+          }}
+        />
       </div>
 
       {banner && (
