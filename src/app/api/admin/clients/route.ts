@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  const sessionCount = Math.max(1, Math.min(30, parseInt(body?.sessionCount, 10) || 1));
 
   if (!name || !email) {
     return NextResponse.json({ error: "נא למלא שם ואימייל" }, { status: 400 });
@@ -35,22 +34,11 @@ export async function POST(req: NextRequest) {
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
-  const libraryTitles = (
-    await prisma.libraryItem.findMany({ orderBy: { number: "asc" }, take: sessionCount })
-  ).map((l) => l.title);
-
+  // No sessions are created here — a session represents an actual
+  // recording that goes live after a real meeting, so the admin adds
+  // each one manually (SessionsTab's "+ הוספת שיעור") as it happens.
   const client = await prisma.client.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      sessions: {
-        create: Array.from({ length: sessionCount }, (_, i) => ({
-          number: i + 1,
-          title: libraryTitles[i] || `שיעור ${i + 1}`,
-        })),
-      },
-    },
+    data: { name, email, passwordHash },
   });
 
   let emailSent = false;

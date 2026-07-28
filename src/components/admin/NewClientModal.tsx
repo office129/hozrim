@@ -14,7 +14,6 @@ export function NewClientModal({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [sessionCount, setSessionCount] = useState(6);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +22,7 @@ export function NewClientModal({
     setError("");
     setLoading(true);
     try {
-      const data = await apiSend("/api/admin/clients", "POST", { name, email, sessionCount });
+      const data = await apiSend("/api/admin/clients", "POST", { name, email });
       onCreated({ tempPassword: data.tempPassword, name });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "משהו השתבש");
@@ -54,16 +53,6 @@ export function NewClientModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="אימייל להתחברות"
-            />
-          </div>
-          <div>
-            <Label>כמה פגישות בתהליך שלו/ה</Label>
-            <Input
-              type="number"
-              min={1}
-              max={30}
-              value={sessionCount}
-              onChange={(e) => setSessionCount(Math.max(1, parseInt(e.target.value) || 1))}
             />
           </div>
           {error && <div className="text-danger text-[13px]">{error}</div>}
