@@ -50,8 +50,11 @@ export async function POST(req: NextRequest) {
   // unreachable — the admin can always link a folder later.
   if (await getConnection()) {
     try {
-      const driveFolderId = await createClientFolder(name);
-      await prisma.client.update({ where: { id: client.id }, data: { driveFolderId } });
+      const { folderId, exercisesFolderId } = await createClientFolder(name);
+      await prisma.client.update({
+        where: { id: client.id },
+        data: { driveFolderId: folderId, driveExercisesFolderId: exercisesFolderId },
+      });
     } catch (e) {
       console.error("Failed to create Drive folder for new client", e);
     }

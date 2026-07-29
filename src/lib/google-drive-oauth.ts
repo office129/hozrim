@@ -138,15 +138,43 @@ async function getOrCreateClientsParentFolder(): Promise<string> {
   return cachedParentFolderId;
 }
 
-// Creates a fresh folder for a new client under the shared parent folder.
-// Best-effort — callers should treat failure as non-fatal (client creation
-// shouldn't fail just because Drive is briefly unreachable).
-export async function createClientFolder(clientName: string): Promise<string> {
-  const parentId = await getOrCreateClientsParentFolder();
+async function createFolder(name: string, parentId: string): Promise<string> {
   const created = (await driveApiFetch(`/files?fields=id`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: clientName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
   })) as { id: string };
   return created.id;
+}
+
+async function findSubfolder(parentId: string, name: string): Promise<string | null> {
+  const q = `mimeType='application/vnd.google-apps.folder' and name='${escapeDriveQueryValue(name)}' and trashed=false and '${parentId}' in parents`;
+  const listRes = (await driveApiFetch(`/files?q=${encodeURIComponent(q)}&fields=files(id)`)) as {
+    files: { id: string }[];
+  };
+  return listRes.files[0]?.id ?? null;
+}
+
+const EXERCISES_SUBFOLDER_NAME = "תרגולים";
+
+// Finds the "תרגולים" subfolder inside an existing client folder (the
+// structure the coach already uses), creating it if it's genuinely
+// missing — e.g. for a brand-new client folder we just created ourselves.
+export async function findOrCreateExercisesFolder(clientFolderId: string): Promise<string> {
+  const existing = await findSubfolder(clientFolderId, EXERCISES_SUBFOLDER_NAME);
+  if (existing) return existing;
+  return createFolder(EXERCISES_SUBFOLDER_NAME, clientFolderId);
+}
+
+// Creates a fresh folder (with its own "תרגולים" subfolder, matching the
+// coach's existing structure) for a new client under the shared parent
+// folder. Best-effort — callers should treat failure as non-fatal (client
+// creation shouldn't fail just because Drive is briefly unreachable).
+export async function createClientFolder(
+  clientName: string
+): Promise<{ folderId: string; exercisesFolderId: string }> {
+  const parentId = await getOrCreateClientsParentFolder();
+  const folderId = await createFolder(clientName, parentId);
+  const exercisesFolderId = await createFolder(EXERCISES_SUBFOLDER_NAME, folderId);
+  return { folderId, exercisesFolderId };
 }

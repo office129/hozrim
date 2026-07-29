@@ -29,12 +29,13 @@ model Client {
   totalSessions     Int      @default(6)
   createdAt         DateTime @default(now())
 
-  sessions      LessonSession[]
-  exercises     Exercise[]
-  journal       JournalEntry[]
-  resetTokens   PasswordResetToken[]
-  passkeys      ClientPasskey[]
-  driveFolderId String?
+  sessions               LessonSession[]
+  exercises              Exercise[]
+  journal                JournalEntry[]
+  resetTokens            PasswordResetToken[]
+  passkeys               ClientPasskey[]
+  driveFolderId          String? // session recordings/summaries go directly here
+  driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
 }
 
 // The coach's own Google Drive, connected once via OAuth so the server can

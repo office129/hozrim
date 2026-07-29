@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { driveFolderId } from "@/lib/external-links";
+import { findOrCreateExercisesFolder } from "@/lib/google-drive-oauth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -38,7 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: { name?: string; email?: string; totalSessions?: number; driveFolderId?: string } = {};
+  const data: {
+    name?: string;
+    email?: string;
+    totalSessions?: number;
+    driveFolderId?: string;
+    driveExercisesFolderId?: string;
+  } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (typeof body?.email === "string" && body.email.trim()) data.email = body.email.trim().toLowerCase();
   if (body?.totalSessions !== undefined) {
@@ -50,6 +57,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const folderId = driveFolderId(body.driveFolderUrl.trim());
     if (!folderId) return NextResponse.json({ error: "קישור תיקייה לא תקין" }, { status: 400 });
     data.driveFolderId = folderId;
+    // Best-effort: the coach's existing folders already have a "תרגולים"
+    // subfolder — find it now so exercise uploads know where to go later,
+    // without needing a second manual link. A failure here (Drive
+    // unreachable, unexpected structure) shouldn't block saving the link.
+    try {
+      data.driveExercisesFolderId = await findOrCreateExercisesFolder(folderId);
+    } catch (e) {
+      console.error("Failed to find/create exercises subfolder", e);
+    }
   }
 
   if (data.email) {
@@ -65,6 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       email: client.email,
       totalSessions: client.totalSessions,
       driveFolderId: client.driveFolderId,
+      driveExercisesFolderId: client.driveExercisesFolderId,
     },
   });
 }
