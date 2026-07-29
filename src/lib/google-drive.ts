@@ -26,6 +26,14 @@ export function isDriveProxyEnabled() {
   return !!getServiceAccount();
 }
 
+// The identity that needs read access to a file/folder before our display
+// proxy can fetch it — distinct from the coach's own OAuth-connected
+// account in google-drive-oauth.ts, which owns files it uploads and does
+// NOT automatically share them with this one.
+export function getServiceAccountEmail(): string | null {
+  return getServiceAccount()?.client_email ?? null;
+}
+
 function base64url(input: Buffer | string) {
   return Buffer.from(input).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

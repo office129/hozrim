@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getServiceAccountEmail } from "@/lib/google-drive";
 
 // The coach's own Drive, connected via a real "sign in with Google" (OAuth)
 // flow — distinct from the read-only service account in google-drive.ts.
@@ -155,6 +156,29 @@ async function findSubfolder(parentId: string, name: string): Promise<string | n
   return listRes.files[0]?.id ?? null;
 }
 
+// Files created via OAuth belong to the coach's own Google account and are
+// private by default — our read-only display proxy (google-drive.ts) reads
+// through a separate identity, a service account, which has no access to
+// them until explicitly granted. Sharing the client's top-level folder once
+// is enough: Drive resolves access by walking up a file's ancestors, so
+// everything already inside it (the "תרגולים" subfolder, files dropped in
+// manually) and everything added later is covered by the same grant.
+// Best-effort — a failed share shouldn't block folder creation/linking;
+// worst case the admin re-links the folder to retry.
+export async function shareWithServiceAccount(folderId: string): Promise<void> {
+  const email = getServiceAccountEmail();
+  if (!email) return;
+  try {
+    await driveApiFetch(`/files/${folderId}/permissions?sendNotificationEmail=false`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "user", emailAddress: email }),
+    });
+  } catch (e) {
+    console.error("Failed to share Drive folder with service account", e);
+  }
+}
+
 const EXERCISES_SUBFOLDER_NAME = "תרגולים";
 
 // Finds the "תרגולים" subfolder inside an existing client folder (the
@@ -176,14 +200,14 @@ export async function createClientFolder(
   const parentId = await getOrCreateClientsParentFolder();
   const folderId = await createFolder(clientName, parentId);
   const exercisesFolderId = await createFolder(EXERCISES_SUBFOLDER_NAME, folderId);
+  await shareWithServiceAccount(folderId);
   return { folderId, exercisesFolderId };
 }
 
-// Starts a resumable upload session and hands back its session URL, which
-// the browser then PUTs the file bytes to directly — the actual bytes
-// never pass through our own server, exactly like the existing
-// direct-to-Blob path, and for the same reason: Vercel's ~4.5MB body limit
-// on serverless functions would otherwise block anything but tiny files.
+// Starts a resumable upload session and hands back its session URL. The
+// actual bytes are sent later, in chunks, relayed through our own server
+// (see /api/admin/drive-upload/relay) rather than PUT directly from the
+// browser — Google's resumable endpoint doesn't support that over CORS.
 export async function createResumableUploadSession(
   folderId: string,
   filename: string,
