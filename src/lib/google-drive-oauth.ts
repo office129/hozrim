@@ -178,3 +178,31 @@ export async function createClientFolder(
   const exercisesFolderId = await createFolder(EXERCISES_SUBFOLDER_NAME, folderId);
   return { folderId, exercisesFolderId };
 }
+
+// Starts a resumable upload session and hands back its session URL, which
+// the browser then PUTs the file bytes to directly — the actual bytes
+// never pass through our own server, exactly like the existing
+// direct-to-Blob path, and for the same reason: Vercel's ~4.5MB body limit
+// on serverless functions would otherwise block anything but tiny files.
+export async function createResumableUploadSession(
+  folderId: string,
+  filename: string,
+  mimeType: string,
+  fileSize: number
+): Promise<string> {
+  const token = await getDriveAccessToken();
+  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Type": mimeType,
+      "X-Upload-Content-Length": String(fileSize),
+    },
+    body: JSON.stringify({ name: filename, parents: [folderId] }),
+  });
+  if (!res.ok) throw new Error(`Failed to start Drive upload session: ${res.status} ${await res.text()}`);
+  const uploadUrl = res.headers.get("location");
+  if (!uploadUrl) throw new Error("Drive did not return an upload session URL");
+  return uploadUrl;
+}

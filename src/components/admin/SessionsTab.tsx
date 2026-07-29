@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { tryUploadFileDirect } from "@/lib/blob-upload-client";
+import { tryUploadFileToDrive } from "@/lib/drive-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
@@ -90,7 +91,8 @@ function SessionRow({
     setError("");
     setMediaProgress(0);
     try {
-      const direct = await tryUploadFileDirect(file, mediaType, `clients/${clientId}`, setMediaProgress);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main", setMediaProgress);
+      const direct = toDrive || (await tryUploadFileDirect(file, mediaType, `clients/${clientId}`, setMediaProgress));
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
           fileUrl: direct.url,
@@ -138,6 +140,15 @@ function SessionRow({
   async function handleSummaryFile(file: File) {
     setError("");
     try {
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main");
+      if (toDrive) {
+        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
+          summaryFileUrl: toDrive.url,
+          summaryFileName: toDrive.fileName,
+        });
+        router.refresh();
+        return;
+      }
       const form = new FormData();
       form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-file`, form);

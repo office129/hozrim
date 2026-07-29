@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { tryUploadFileDirect } from "@/lib/blob-upload-client";
+import { tryUploadFileToDrive } from "@/lib/drive-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
@@ -58,7 +59,8 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     setError("");
     setAudioProgress(0);
     try {
-      const direct = await tryUploadFileDirect(file, "audio", `clients/${clientId}`, setAudioProgress);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises", setAudioProgress);
+      const direct = toDrive || (await tryUploadFileDirect(file, "audio", `clients/${clientId}`, setAudioProgress));
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
           audioFileUrl: direct.url,
@@ -105,6 +107,15 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     setError("");
     setPdfUploading(true);
     try {
+      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises");
+      if (toDrive) {
+        await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
+          pdfFileUrl: toDrive.url,
+          pdfFileName: toDrive.fileName,
+        });
+        router.refresh();
+        return;
+      }
       const form = new FormData();
       form.append("file", file);
       await apiUpload(`/api/admin/clients/${clientId}/exercises/${exercise.id}/upload`, form);
