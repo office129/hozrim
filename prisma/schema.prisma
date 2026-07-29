@@ -29,11 +29,23 @@ model Client {
   totalSessions     Int      @default(6)
   createdAt         DateTime @default(now())
 
-  sessions    LessonSession[]
-  exercises   Exercise[]
-  journal     JournalEntry[]
-  resetTokens PasswordResetToken[]
-  passkeys    ClientPasskey[]
+  sessions      LessonSession[]
+  exercises     Exercise[]
+  journal       JournalEntry[]
+  resetTokens   PasswordResetToken[]
+  passkeys      ClientPasskey[]
+  driveFolderId String?
+}
+
+// The coach's own Google Drive, connected once via OAuth so the server can
+// write recordings directly into it (using the coach's real storage quota)
+// instead of proxying through Vercel Blob. Single row — one practice, one
+// Drive.
+model GoogleDriveConnection {
+  id             String   @id @default(cuid())
+  connectedEmail String
+  refreshToken   String
+  createdAt      DateTime @default(now())
 }
 
 // A registered biometric/fingerprint login (WebAuthn credential) — the

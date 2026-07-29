@@ -8,6 +8,7 @@ import { InitialBadge } from "@/components/icons";
 import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { InlineEditableText } from "./InlineEditableText";
 import { NewAdminModal } from "./NewAdminModal";
+import { GoogleDriveConnectionCard } from "./GoogleDriveConnectionCard";
 
 type AdminData = { id: string; email: string; name: string };
 
@@ -40,6 +41,8 @@ export function TeamView({ currentAdminId, admins }: { currentAdminId: string; a
 
   return (
     <div className="animate-fade-up">
+      <GoogleDriveConnectionCard />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="font-heading font-bold text-2xl text-ink">צוות</div>
