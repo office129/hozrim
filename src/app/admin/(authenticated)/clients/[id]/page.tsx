@@ -21,6 +21,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         name: client.name,
         email: client.email,
         totalSessions: client.totalSessions,
+        driveFolderId: client.driveFolderId,
         sessions: client.sessions,
         exercises: client.exercises,
         notes: client.sessions

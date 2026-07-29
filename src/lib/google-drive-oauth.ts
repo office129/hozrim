@@ -97,3 +97,56 @@ export async function getDriveAccessToken(): Promise<string> {
   cachedAccessToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
   return cachedAccessToken.token;
 }
+
+async function driveApiFetch(path: string, init?: RequestInit) {
+  const token = await getDriveAccessToken();
+  const res = await fetch(`https://www.googleapis.com/drive/v3${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, ...(init?.headers || {}) },
+  });
+  if (!res.ok) throw new Error(`Drive API error: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+function escapeDriveQueryValue(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+const CLIENTS_PARENT_FOLDER_NAME = "חוזרים לבראשית - לקוחות";
+// Cached per warm serverless instance only — harmless if it misses on a
+// cold start, since the lookup-or-create below is idempotent either way.
+let cachedParentFolderId: string | null = null;
+
+async function getOrCreateClientsParentFolder(): Promise<string> {
+  if (cachedParentFolderId) return cachedParentFolderId;
+
+  const q = `mimeType='application/vnd.google-apps.folder' and name='${escapeDriveQueryValue(CLIENTS_PARENT_FOLDER_NAME)}' and trashed=false and 'root' in parents`;
+  const listRes = (await driveApiFetch(`/files?q=${encodeURIComponent(q)}&fields=files(id)`)) as {
+    files: { id: string }[];
+  };
+  if (listRes.files.length) {
+    cachedParentFolderId = listRes.files[0].id;
+    return cachedParentFolderId;
+  }
+
+  const created = (await driveApiFetch(`/files?fields=id`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: CLIENTS_PARENT_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
+  })) as { id: string };
+  cachedParentFolderId = created.id;
+  return cachedParentFolderId;
+}
+
+// Creates a fresh folder for a new client under the shared parent folder.
+// Best-effort — callers should treat failure as non-fatal (client creation
+// shouldn't fail just because Drive is briefly unreachable).
+export async function createClientFolder(clientName: string): Promise<string> {
+  const parentId = await getOrCreateClientsParentFolder();
+  const created = (await driveApiFetch(`/files?fields=id`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: clientName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+  })) as { id: string };
+  return created.id;
+}

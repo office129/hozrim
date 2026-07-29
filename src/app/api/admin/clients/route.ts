@@ -5,6 +5,7 @@ import { hashPassword } from "@/lib/auth";
 import { generateTempPassword } from "@/lib/tokens";
 import { sendMail, isEmailConfigured } from "@/lib/email";
 import { getClientsOverview } from "@/lib/admin-data";
+import { createClientFolder, getConnection } from "@/lib/google-drive-oauth";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -43,6 +44,18 @@ export async function POST(req: NextRequest) {
   const client = await prisma.client.create({
     data: { name, email, passwordHash, totalSessions },
   });
+
+  // Best-effort: a new client's folder is a convenience, not something
+  // that should ever block account creation if Drive is briefly slow or
+  // unreachable — the admin can always link a folder later.
+  if (await getConnection()) {
+    try {
+      const driveFolderId = await createClientFolder(name);
+      await prisma.client.update({ where: { id: client.id }, data: { driveFolderId } });
+    } catch (e) {
+      console.error("Failed to create Drive folder for new client", e);
+    }
+  }
 
   let emailSent = false;
   try {

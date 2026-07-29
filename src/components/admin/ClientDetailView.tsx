@@ -7,6 +7,7 @@ import { apiSend } from "@/lib/api-client";
 import { InitialBadge } from "@/components/icons";
 import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { InlineEditableText } from "./InlineEditableText";
+import { ClientDriveFolderRow } from "./ClientDriveFolderRow";
 import { SessionsTab } from "./SessionsTab";
 import { ExercisesTab } from "./ExercisesTab";
 import { NotesTab } from "./NotesTab";
@@ -16,6 +17,7 @@ type ClientDetail = {
   name: string;
   email: string;
   totalSessions: number;
+  driveFolderId: string | null;
   sessions: {
     id: string;
     number: number;
@@ -118,7 +120,7 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5 mb-6 -mt-3">
+      <div className="flex items-center gap-1.5 mb-3 -mt-3">
         <span className="text-[13px] text-muted">מספר פגישות בתהליך:</span>
         <InlineEditableText
           value={String(client.totalSessions)}
@@ -131,6 +133,8 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
           }}
         />
       </div>
+
+      <ClientDriveFolderRow clientId={client.id} driveFolderId={client.driveFolderId} />
 
       {banner && (
         <div className="mb-5 rounded-xl border border-brand-soft-2 bg-brand-soft-2 px-4 py-3 text-sm text-ink">
