@@ -16,11 +16,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!client) return NextResponse.json({ error: "לא נמצא/ה" }, { status: 404 });
   if (!client.driveFolderId) return NextResponse.json({ error: "אין תיקיית דרייב מקושרת" }, { status: 400 });
 
-  try {
-    await shareWithServiceAccount(client.driveFolderId);
-  } catch (e) {
-    console.error("Failed to re-share Drive folder", e);
-    return NextResponse.json({ error: "השיתוף נכשל" }, { status: 502 });
+  const result = await shareWithServiceAccount(client.driveFolderId);
+  if (!result.ok) {
+    if (result.reason === "not_configured") {
+      return NextResponse.json(
+        {
+          error:
+            "מנגנון התצוגה מהדרייב לא מוגדר בסביבת הייצור (חסר GOOGLE_SERVICE_ACCOUNT_KEY) — יש לבדוק בהגדרות ה-Environment Variables בוורסל, תחת Production.",
+        },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: `השיתוף נכשל: ${result.detail || "שגיאה לא ידועה"}` }, { status: 502 });
   }
 
   return NextResponse.json({ ok: true });

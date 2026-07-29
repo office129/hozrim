@@ -156,6 +156,8 @@ async function findSubfolder(parentId: string, name: string): Promise<string | n
   return listRes.files[0]?.id ?? null;
 }
 
+export type ShareResult = { ok: true } | { ok: false; reason: "not_configured" | "request_failed"; detail?: string };
+
 // Files created via OAuth belong to the coach's own Google account and are
 // private by default — our read-only display proxy (google-drive.ts) reads
 // through a separate identity, a service account, which has no access to
@@ -163,19 +165,25 @@ async function findSubfolder(parentId: string, name: string): Promise<string | n
 // is enough: Drive resolves access by walking up a file's ancestors, so
 // everything already inside it (the "תרגולים" subfolder, files dropped in
 // manually) and everything added later is covered by the same grant.
-// Best-effort — a failed share shouldn't block folder creation/linking;
-// worst case the admin re-links the folder to retry.
-export async function shareWithServiceAccount(folderId: string): Promise<void> {
+//
+// Returns a result instead of throwing so callers can decide for
+// themselves whether a failure matters — folder creation/linking treats it
+// as best-effort (shouldn't block on Drive being briefly unreachable),
+// while an admin-triggered "fix this now" action wants to surface exactly
+// what went wrong instead of a silent no-op that looks like success.
+export async function shareWithServiceAccount(folderId: string): Promise<ShareResult> {
   const email = getServiceAccountEmail();
-  if (!email) return;
+  if (!email) return { ok: false, reason: "not_configured" };
   try {
     await driveApiFetch(`/files/${folderId}/permissions?sendNotificationEmail=false`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: "reader", type: "user", emailAddress: email }),
     });
+    return { ok: true };
   } catch (e) {
     console.error("Failed to share Drive folder with service account", e);
+    return { ok: false, reason: "request_failed", detail: e instanceof Error ? e.message : String(e) };
   }
 }
 
