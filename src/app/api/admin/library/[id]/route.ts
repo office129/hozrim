@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
+import { trashDriveFile } from "@/lib/google-drive-oauth";
 
 const LINK_SLOTS = {
   video: { urlField: "videoFileUrl", nameField: "videoFileName" },
@@ -62,6 +63,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   await deleteUploadByUrl(existing.videoFileUrl);
   await deleteUploadByUrl(existing.audioFileUrl);
   await deleteUploadByUrl(existing.fileUrl);
+  // The calls above only trash files the app already knew about — the
+  // item's own Drive folder (and anything dropped into it by hand) needs
+  // its own trash so it doesn't linger as orphaned clutter.
+  if (existing.driveFolderId) {
+    try {
+      await trashDriveFile(existing.driveFolderId);
+    } catch (e) {
+      console.error("Failed to trash library item's Drive folder", e);
+    }
+  }
   await prisma.libraryItem.delete({ where: { id } });
 
   const remaining = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
