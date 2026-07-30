@@ -69,6 +69,8 @@ export function SessionDetailView({
         › חזרה לרשימה
       </Link>
 
+      <div className="font-heading font-bold text-[19px] text-ink mb-3.5">{session.title}</div>
+
       {!session.fileUrl && (
         <div
           className="w-full rounded-[18px] bg-black flex items-center justify-center text-on-brand/60 text-sm"
@@ -94,8 +96,6 @@ export function SessionDetailView({
             <AudioEmbed url={session.fileUrl} className="flex-1 w-full h-9" />
           </div>
         ))}
-
-      <div className="font-heading font-bold text-[19px] text-ink mt-4">{session.title}</div>
 
       {tipVisible && (
         <div className="mt-3 bg-brand-soft-2 border border-brand-soft rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 animate-fade-up">
