@@ -36,12 +36,14 @@ export async function importMeetRecordingForClient(
   }
 
   const recordingDate = new Date(file.createdTime);
-  const eventName = extractEventName(file.name);
-  const sessionTitle = `${eventName} - ${formatMeetingDate(recordingDate)}`;
+  // The Meet event name (e.g. "עדן יוסף ברוך - ליווי אישי") is only used
+  // to match the recording to this client - the session/folder itself is
+  // named "פגישה N - תאריך", same auto-numbering as every other session.
+  const count = await prisma.lessonSession.count({ where: { clientId: client.id } });
+  const sessionTitle = `פגישה ${count + 1} - ${formatMeetingDate(recordingDate)}`;
   const sessionFolderId = await findOrCreateSessionFolder(meetingsFolderId, sessionTitle);
   const copiedFileId = await copyDriveFile(file.id, sessionFolderId, file.name);
 
-  const count = await prisma.lessonSession.count({ where: { clientId: client.id } });
   const session = await prisma.lessonSession.create({
     data: {
       clientId: client.id,
