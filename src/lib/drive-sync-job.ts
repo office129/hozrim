@@ -231,6 +231,28 @@ async function runFolderSync() {
   };
 }
 
+// Meet import only, returning its result - meant for a caller that wants
+// to check often (e.g. a Google Apps Script trigger hitting this every
+// minute so a new recording gets picked up without the coach needing to
+// open the admin panel at all). Deliberately skips the full folder sync
+// (runFolderSync) that runDriveSyncJob also does, since re-scanning every
+// client's/library item's own Drive folder on every single call would be
+// needless Drive API traffic at that frequency - that heavier check
+// stays on the once-daily cron, the manual button, and the per-page
+// visits, none of which need sub-minute freshness the way "a client is
+// waiting for their session right now" does.
+export async function runMeetImportJob() {
+  const connection = await getConnection();
+  if (!connection) {
+    return { ok: true as const, skipped: "Google Drive is not connected" };
+  }
+  if (!connection.meetRecordingsFolderId) {
+    return { ok: true as const, skipped: "no Meet Recordings folder configured" };
+  }
+  const meetImport = await runMeetImport(connection.meetRecordingsFolderId);
+  return { ok: true as const, meetImport };
+}
+
 export async function runDriveSyncJob() {
   const connection = await getConnection();
   if (!connection) {
