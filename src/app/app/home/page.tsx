@@ -15,7 +15,11 @@ export default async function HomePage() {
   // don't crash here either if it slips through.
   if (!client) redirect("/login");
 
-  const totalCount = client.totalSessions;
+  // If more sessions actually exist than the coach originally planned for
+  // (e.g. the process ran longer than expected), the displayed total
+  // should reflect reality rather than show progress past 100% - this
+  // only affects what's shown here, not the totalSessions the coach set.
+  const totalCount = Math.max(client.totalSessions, sessions.length);
   const completedCount = sessions.filter((s) => s.completed).length;
   const current = sessions.find((s) => !s.completed) || sessions[sessions.length - 1] || null;
   const progressPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;

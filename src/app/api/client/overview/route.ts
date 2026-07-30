@@ -14,7 +14,11 @@ export async function GET() {
     orderBy: { number: "asc" },
   });
 
-  const totalCount = client.totalSessions;
+  // If more sessions actually exist than the coach originally planned for
+  // (e.g. the process ran longer than expected), the displayed total
+  // should reflect reality rather than show progress past 100% - this
+  // only affects what's shown here, not the totalSessions the coach set.
+  const totalCount = Math.max(client.totalSessions, sessions.length);
   const completedCount = sessions.filter((s) => s.completed).length;
   const current = sessions.find((s) => !s.completed) || sessions[sessions.length - 1] || null;
 
