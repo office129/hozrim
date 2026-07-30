@@ -148,6 +148,21 @@ export async function listFolderFiles(
   return res.files;
 }
 
+// Whether a folder (or any file) still exists and hasn't been trashed —
+// used to notice a session/library-item folder the coach deleted (or
+// trashed) directly in Drive, which listFolderFiles alone can't catch:
+// it only reports the folder's own children, not whether the folder
+// itself is still around.
+export async function folderExists(fileId: string): Promise<boolean> {
+  try {
+    const res = (await driveApiFetch(`/files/${fileId}?fields=id,trashed`)) as { trashed: boolean };
+    return !res.trashed;
+  } catch (e) {
+    if (e instanceof Error && /Drive API error: 404/.test(e.message)) return false;
+    throw e;
+  }
+}
+
 // Lists the subfolders directly inside a folder — used to notice a
 // session/library-item folder the coach created by hand directly in
 // Drive, with no matching row in the app yet.

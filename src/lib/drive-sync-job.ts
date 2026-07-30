@@ -7,6 +7,8 @@ import {
   reconcileLibraryItemFolder,
   discoverNewSessionFolders,
   discoverNewLibraryItemFolders,
+  removeSessionIfFolderGone,
+  removeLibraryItemIfFolderGone,
 } from "@/lib/drive-sync";
 
 // The full Drive sync job — shared by the scheduled cron route and the
@@ -157,6 +159,7 @@ async function runFolderSync() {
   let sessionErrors = 0;
   for (const { client, ...session } of sessions) {
     try {
+      if (await removeSessionIfFolderGone(session)) continue;
       await reconcileSessionFolder(session, client);
     } catch (e) {
       sessionErrors++;
@@ -168,6 +171,7 @@ async function runFolderSync() {
   let libraryErrors = 0;
   for (const item of libraryItems) {
     try {
+      if (await removeLibraryItemIfFolderGone(item)) continue;
       await reconcileLibraryItemFolder(item);
     } catch (e) {
       libraryErrors++;
@@ -260,6 +264,7 @@ export async function syncClientFolders(clientId: string): Promise<void> {
   await Promise.all(
     sessions.map(async (session) => {
       try {
+        if (await removeSessionIfFolderGone(session)) return;
         await reconcileSessionFolder(session, client);
       } catch (e) {
         console.error("Failed to reconcile session Drive folder", session.id, e);
@@ -284,6 +289,7 @@ export async function syncLibraryFolders(): Promise<void> {
   await Promise.all(
     items.map(async (item) => {
       try {
+        if (await removeLibraryItemIfFolderGone(item)) return;
         await reconcileLibraryItemFolder(item);
       } catch (e) {
         console.error("Failed to reconcile library item Drive folder", item.id, e);

@@ -3,11 +3,54 @@ import { driveFileId } from "@/lib/external-links";
 import {
   listFolderFiles,
   listSubfolders,
+  folderExists,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   getOrCreateLibraryFolder,
   findOrCreateLibraryItemFolder,
 } from "@/lib/google-drive-oauth";
+
+// Notices that a session's own Drive folder was deleted (or trashed) in
+// Drive itself, rather than a file being removed from within it —
+// listFolderFiles alone can't catch this, since it only reports the
+// folder's children and has no way to say the folder itself is gone.
+// When that happens the session is removed the same way deleting it in
+// the app would (renumbering the rest), completing the other half of
+// "delete in one place, it disappears in the other."
+export async function removeSessionIfFolderGone(session: {
+  id: string;
+  clientId: string;
+  driveFolderId: string | null;
+}): Promise<boolean> {
+  if (!session.driveFolderId) return false;
+  if (await folderExists(session.driveFolderId)) return false;
+
+  await prisma.lessonSession.delete({ where: { id: session.id } });
+  const remaining = await prisma.lessonSession.findMany({
+    where: { clientId: session.clientId },
+    orderBy: { number: "asc" },
+  });
+  await prisma.$transaction(
+    remaining.map((s, i) => prisma.lessonSession.update({ where: { id: s.id }, data: { number: i + 1 } }))
+  );
+  return true;
+}
+
+// Same idea as removeSessionIfFolderGone, for a library item.
+export async function removeLibraryItemIfFolderGone(item: {
+  id: string;
+  driveFolderId: string | null;
+}): Promise<boolean> {
+  if (!item.driveFolderId) return false;
+  if (await folderExists(item.driveFolderId)) return false;
+
+  await prisma.libraryItem.delete({ where: { id: item.id } });
+  const remaining = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
+  await prisma.$transaction(
+    remaining.map((it, i) => prisma.libraryItem.update({ where: { id: it.id }, data: { number: i + 1 } }))
+  );
+  return true;
+}
 
 // Reconciles one session's own Drive folder against what the app already
 // has recorded for it — the other half of "drop a file into the folder
