@@ -250,6 +250,15 @@ export async function findOrCreateSessionFolder(
   return createFolder(name, meetingsFolderId);
 }
 
+// Same idea as findOrCreateSessionFolder, one folder per library item
+// (e.g. "שיעור 2") inside the general "ספריית תכנים" folder.
+export async function findOrCreateLibraryItemFolder(libraryFolderId: string, itemNumber: number): Promise<string> {
+  const name = `שיעור ${itemNumber}`;
+  const existing = await findSubfolder(libraryFolderId, name);
+  if (existing) return existing;
+  return createFolder(name, libraryFolderId);
+}
+
 // Creates a fresh folder (with its own "תרגולים" and "פגישות והקלטות"
 // subfolders, matching the coach's existing structure) for a new client
 // under the shared parent folder. Best-effort — callers should treat

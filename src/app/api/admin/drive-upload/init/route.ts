@@ -7,6 +7,7 @@ import {
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   getOrCreateLibraryFolder,
+  findOrCreateLibraryItemFolder,
 } from "@/lib/google-drive-oauth";
 
 // Starts a direct-to-Drive upload for a specific client's session/exercise
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
   const mimeType = typeof body?.mimeType === "string" ? body.mimeType : "application/octet-stream";
   const fileSize = typeof body?.fileSize === "number" ? body.fileSize : 0;
   const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
+  const libraryItemId = typeof body?.libraryItemId === "string" ? body.libraryItemId : "";
 
   if (!folder || !filename || !fileSize) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
@@ -45,10 +47,19 @@ export async function POST(req: NextRequest) {
   if (folder === "main" && !sessionId) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
+  if (folder === "library" && !libraryItemId) {
+    return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+  }
 
   if (folder === "library") {
+    const item = await prisma.libraryItem.findUnique({ where: { id: libraryItemId } });
+    if (!item) return NextResponse.json({ error: "השיעור לא נמצא" }, { status: 404 });
     try {
-      const folderId = await getOrCreateLibraryFolder();
+      // Each library item gets its own "שיעור N" folder, so its
+      // video/audio/file all land together instead of loose in the shared
+      // library folder.
+      const libraryFolderId = await getOrCreateLibraryFolder();
+      const folderId = await findOrCreateLibraryItemFolder(libraryFolderId, item.number);
       const uploadUrl = await createResumableUploadSession(folderId, filename, mimeType, fileSize);
       return NextResponse.json({ uploadUrl });
     } catch (e) {

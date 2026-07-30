@@ -89,7 +89,7 @@ function LibraryRow({
     const setProgress = slot === "video" ? setVideoProgress : slot === "audio" ? setAudioProgress : null;
     setProgress?.(0);
     try {
-      const toDrive = await tryUploadLibraryFileToDrive(file, setProgress ?? undefined);
+      const toDrive = await tryUploadLibraryFileToDrive(file, item.id, setProgress ?? undefined);
       if (toDrive) {
         await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: toDrive.url, name: toDrive.fileName });
         router.refresh();

@@ -129,12 +129,14 @@ export async function tryUploadFileToDrive(
 // Same idea, for a general (not per-client) opening-content library item.
 export async function tryUploadLibraryFileToDrive(
   file: File,
+  libraryItemId: string,
   onProgress?: (percentage: number) => void
 ): Promise<{ url: string; fileName: string } | null> {
   return uploadViaInit(
     file,
     {
       folder: "library",
+      libraryItemId,
       filename: file.name,
       mimeType: file.type || "application/octet-stream",
       fileSize: file.size,
