@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { copyDriveFile, findOrCreateMeetingsFolder, findOrCreateSessionFolder } from "@/lib/google-drive-oauth";
+import { notifyClient } from "@/lib/notifications";
 
 // Google appends " (date time)" to a Meet recording's filename (older,
 // flat layout) or leaves it off a per-meeting subfolder's own name
@@ -56,6 +57,12 @@ export async function importMeetRecordingForClient(
       fileUrl: `https://drive.google.com/file/d/${copiedFileId}/view`,
       fileName: file.name,
     },
+  });
+
+  await notifyClient(client.id, {
+    type: "session",
+    title: `הוקלטה חדשה נוספה: ${sessionTitle}`,
+    link: `/app/recordings/${session.id}`,
   });
 
   return session.id;

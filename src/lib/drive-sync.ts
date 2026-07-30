@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { driveFileId } from "@/lib/external-links";
+import { notifyClient } from "@/lib/notifications";
 import {
   listFolderFiles,
   listSubfolders,
@@ -141,6 +142,11 @@ export async function reconcileSessionFolder(
         },
       });
       hasMain = true;
+      await notifyClient(session.clientId, {
+        type: "session",
+        title: `הוקלטה חדשה נוספה: ${session.title}`,
+        link: `/app/recordings/${session.id}`,
+      });
     }
   }
 }

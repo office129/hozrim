@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
+import { notifyClient } from "@/lib/notifications";
 
 export async function PATCH(
   req: NextRequest,
@@ -63,12 +64,25 @@ export async function PATCH(
       typeof body?.pdfFileName === "string" && body.pdfFileName.trim() ? body.pdfFileName.trim() : body.pdfFileUrl;
   }
 
+  // Whether this update is the exercise's first content of any kind -
+  // computed before the write so "already had audio, now adding the PDF
+  // too" doesn't notify again.
+  const hadNoContentYet = !!existing && !existing.audioFileUrl && !existing.pdfFileUrl;
+
   const result = await prisma.exercise.updateMany({ where: { id: exerciseId, clientId }, data });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
   if (data.audioFileUrl !== undefined && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
   if (data.pdfFileUrl !== undefined && previousPdfUrl) await deleteUploadByUrl(previousPdfUrl);
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+  if (hadNoContentYet && (data.audioFileUrl || data.pdfFileUrl) && exercise) {
+    await notifyClient(clientId, {
+      type: "exercise",
+      title: `תרגול חדש נוסף: ${exercise.title}`,
+      link: "/app/exercises",
+    });
+  }
+
   return NextResponse.json({ exercise });
 }
 

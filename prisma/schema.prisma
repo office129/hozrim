@@ -35,9 +35,28 @@ model Client {
   journal                JournalEntry[]
   resetTokens            PasswordResetToken[]
   passkeys               ClientPasskey[]
+  notifications          Notification[]
   driveFolderId          String? // the client's top-level Drive folder
   driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
   driveMeetingsFolderId  String? // the "פגישות והקלטות" subfolder inside driveFolderId — each session gets its own "פגישה N" folder inside this one
+}
+
+// A notification shown in the client app's bell icon - either triggered
+// automatically (a new session/exercise became available) or sent by the
+// coach to every client at once ("broadcast"). One row per client even
+// for a broadcast, so read state is just a plain per-row timestamp with
+// no separate join table needed.
+model Notification {
+  id        String    @id @default(cuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type      String // "session" | "exercise" | "broadcast"
+  title     String
+  link      String? // in-app path to navigate to when clicked, e.g. "/app/recordings/<id>"
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([clientId, createdAt])
 }
 
 // The coach's own Google Drive, connected once via OAuth so the server can

@@ -4,6 +4,7 @@ import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
 import { trashDriveFile } from "@/lib/google-drive-oauth";
+import { notifyClient } from "@/lib/notifications";
 
 export async function PATCH(
   req: NextRequest,
@@ -52,6 +53,17 @@ export async function PATCH(
     where: { id: sessionId },
     include: { summaryFiles: { orderBy: { order: "asc" } } },
   });
+
+  // Notify only the first time a recording becomes available for this
+  // session, not on every later edit/replacement.
+  if (data.fileUrl && !previousFileUrl && session) {
+    await notifyClient(clientId, {
+      type: "session",
+      title: `הוקלטה חדשה נוספה: ${session.title}`,
+      link: `/app/recordings/${session.id}`,
+    });
+  }
+
   return NextResponse.json({ session });
 }
 

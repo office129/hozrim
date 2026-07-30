@@ -9,6 +9,7 @@ import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { InlineEditableText } from "./InlineEditableText";
 import { NewAdminModal } from "./NewAdminModal";
 import { GoogleDriveConnectionCard } from "./GoogleDriveConnectionCard";
+import { BroadcastNotificationCard } from "./BroadcastNotificationCard";
 
 type AdminData = { id: string; email: string; name: string };
 
@@ -42,6 +43,7 @@ export function TeamView({ currentAdminId, admins }: { currentAdminId: string; a
   return (
     <div className="animate-fade-up">
       <GoogleDriveConnectionCard />
+      <BroadcastNotificationCard />
 
       <div className="flex items-center justify-between mb-6">
         <div>

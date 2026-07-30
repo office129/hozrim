@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
 import { useAppViewportHeight } from "@/lib/useAppViewportHeight";
+import { NotificationBell } from "./NotificationBell";
 
 const NAV = [
   { href: "/app/home", label: "בית" },
@@ -110,36 +111,39 @@ export function ClientShell({
                   <div className="text-on-brand/70 text-[13px]">שלום, {clientName}</div>
                   <div className="font-heading font-bold text-xl text-on-brand mt-0.5">המסע שלך</div>
                 </div>
-                <div className="relative shrink-0">
-                  <Link
-                    href="/app/profile"
-                    onClick={() => tipVisible && dismissTip()}
-                    className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold overflow-hidden shrink-0"
-                  >
-                    {avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      (clientName.trim()[0] || "?").toUpperCase()
-                    )}
-                  </Link>
-                  {tipVisible && (
-                    <div className="absolute top-[calc(100%+10px)] left-0 z-20 w-[210px] animate-fade-up">
-                      <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
-                      <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
-                        <div className="text-[13px] text-ink leading-relaxed">
-                          כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה, וגם להוסיף כניסה
-                          בטביעת אצבע — בכל שלב.
+                <div className="flex items-center gap-2 shrink-0">
+                  <NotificationBell />
+                  <div className="relative shrink-0">
+                    <Link
+                      href="/app/profile"
+                      onClick={() => tipVisible && dismissTip()}
+                      className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-on-brand text-sm font-bold overflow-hidden shrink-0"
+                    >
+                      {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        (clientName.trim()[0] || "?").toUpperCase()
+                      )}
+                    </Link>
+                    {tipVisible && (
+                      <div className="absolute top-[calc(100%+10px)] left-0 z-20 w-[210px] animate-fade-up">
+                        <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
+                        <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
+                          <div className="text-[13px] text-ink leading-relaxed">
+                            כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה, וגם להוסיף כניסה
+                            בטביעת אצבע — בכל שלב.
+                          </div>
+                          <button
+                            onClick={dismissTip}
+                            className="mt-2 text-[12.5px] font-semibold text-brand cursor-pointer"
+                          >
+                            הבנתי
+                          </button>
                         </div>
-                        <button
-                          onClick={dismissTip}
-                          className="mt-2 text-[12.5px] font-semibold text-brand cursor-pointer"
-                        >
-                          הבנתי
-                        </button>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )}
