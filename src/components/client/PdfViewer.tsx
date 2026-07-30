@@ -5,19 +5,90 @@ import { Document, Page, pdfjs } from "react-pdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+const SWIPE_THRESHOLD = 50;
+// Matches Tailwind's md breakpoint, used everywhere else in the app to
+// switch between mobile and desktop layouts.
+const DESKTOP_QUERY = "(min-width: 768px)";
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isDesktop;
+}
+
+// rootMargin only expands the observer's own root — it does NOT expand
+// any scrollable ancestor sitting between the target and that root. The
+// app's whole content area scrolls inside its own overflow-y div (the
+// phone-shell layout in ClientShell), not the bare document, so a null
+// root (the default) clips against that inner container's actual,
+// unexpanded bounds and pages just past it never intersect no matter how
+// large rootMargin is. Finding that real scroll container and passing it
+// as root fixes it.
+function findScrollParent(el: HTMLElement | null): Element | null {
+  let node = el?.parentElement ?? null;
+  while (node) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+// Renders its page only once scrolled near the viewport, so a long
+// document doesn't pay to draw every page's canvas up front — the
+// placeholder height (a standard portrait-page aspect ratio) keeps the
+// scrollbar from jumping around as pages mount in.
+function LazyPage({ pageNumber, width }: { pageNumber: number; width: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { root: findScrollParent(el), rootMargin: "600px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={visible ? undefined : { minHeight: width * 1.414 }}>
+      {visible && <Page pageNumber={pageNumber} width={width} renderTextLayer={false} renderAnnotationLayer={false} />}
+    </div>
+  );
+}
+
 // Mobile browsers don't reliably render PDFs placed in an <iframe> —
 // desktop Chrome/Firefox/Edge have a built-in PDF.js-based viewer that
 // renders inline, but mobile browsers/webviews mostly show a generic
 // "open externally" placeholder instead. Rendering with react-pdf (pdf.js
 // running against a <canvas>) sidesteps that entirely, since it's our own
 // JS drawing pixels rather than relying on the browser's native embed
-// handling. Only the current page is rendered (not the whole document) so
-// a long, multi-page summary doesn't have to render 80 canvases at once.
+// handling.
+//
+// Mobile: one page at a time (buttons + swipe) — easier to read at phone
+// width, and avoids rendering many canvases on a weaker device.
+// Desktop: a normal continuous scroll through every page, matching how a
+// document reads naturally with a mouse/trackpad and more screen space.
 export function PdfViewer({ url, className }: { url: string; className?: string }) {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
   const [width, setWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -30,6 +101,19 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
     return () => observer.disconnect();
   }, []);
 
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current == null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+    const deltaX = endX - touchStartX.current;
+    touchStartX.current = null;
+    if (deltaX <= -SWIPE_THRESHOLD) setPage((p) => Math.min(numPages, p + 1));
+    else if (deltaX >= SWIPE_THRESHOLD) setPage((p) => Math.max(1, p - 1));
+  }
+
   return (
     <div ref={containerRef} className={className}>
       <Document
@@ -41,9 +125,20 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
         loading={<div className="text-xs text-muted text-center py-6">טוען מסמך…</div>}
         error={<div className="text-xs text-danger text-center py-6">לא ניתן לטעון את המסמך</div>}
       >
-        {width && <Page pageNumber={page} width={width} renderTextLayer={false} renderAnnotationLayer={false} />}
+        {width && isDesktop && (
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: numPages }, (_, i) => (
+              <LazyPage key={i + 1} pageNumber={i + 1} width={width} />
+            ))}
+          </div>
+        )}
+        {width && !isDesktop && (
+          <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <Page pageNumber={page} width={width} renderTextLayer={false} renderAnnotationLayer={false} />
+          </div>
+        )}
       </Document>
-      {numPages > 1 && (
+      {!isDesktop && numPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
