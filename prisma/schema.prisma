@@ -34,8 +34,9 @@ model Client {
   journal                JournalEntry[]
   resetTokens            PasswordResetToken[]
   passkeys               ClientPasskey[]
-  driveFolderId          String? // session recordings/summaries go directly here
+  driveFolderId          String? // the client's top-level Drive folder
   driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
+  driveMeetingsFolderId  String? // the "פגישות והקלטות" subfolder inside driveFolderId — each session gets its own "פגישה N" folder inside this one
 }
 
 // The coach's own Google Drive, connected once via OAuth so the server can

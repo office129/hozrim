@@ -91,7 +91,7 @@ function SessionRow({
     setError("");
     setMediaProgress(0);
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "main", setMediaProgress);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main", setMediaProgress, session.number);
       const direct = toDrive || (await tryUploadFileDirect(file, mediaType, `clients/${clientId}`, setMediaProgress));
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
@@ -140,7 +140,7 @@ function SessionRow({
   async function handleSummaryFile(file: File) {
     setError("");
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "main");
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main", undefined, session.number);
       if (toDrive) {
         await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
           summaryFileUrl: toDrive.url,

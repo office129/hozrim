@@ -188,6 +188,7 @@ export async function shareWithServiceAccount(folderId: string): Promise<ShareRe
 }
 
 const EXERCISES_SUBFOLDER_NAME = "תרגולים";
+const MEETINGS_SUBFOLDER_NAME = "פגישות והקלטות";
 
 // Finds the "תרגולים" subfolder inside an existing client folder (the
 // structure the coach already uses), creating it if it's genuinely
@@ -198,18 +199,38 @@ export async function findOrCreateExercisesFolder(clientFolderId: string): Promi
   return createFolder(EXERCISES_SUBFOLDER_NAME, clientFolderId);
 }
 
-// Creates a fresh folder (with its own "תרגולים" subfolder, matching the
-// coach's existing structure) for a new client under the shared parent
-// folder. Best-effort — callers should treat failure as non-fatal (client
-// creation shouldn't fail just because Drive is briefly unreachable).
+// Same idea as findOrCreateExercisesFolder, for the "פגישות והקלטות"
+// subfolder that holds one folder per session.
+export async function findOrCreateMeetingsFolder(clientFolderId: string): Promise<string> {
+  const existing = await findSubfolder(clientFolderId, MEETINGS_SUBFOLDER_NAME);
+  if (existing) return existing;
+  return createFolder(MEETINGS_SUBFOLDER_NAME, clientFolderId);
+}
+
+// Each session gets its own folder (e.g. "פגישה 3") inside "פגישות
+// והקלטות", holding both the recording and its PDF summary together —
+// mirroring how the coach already thinks about sessions in the app.
+export async function findOrCreateSessionFolder(meetingsFolderId: string, sessionNumber: number): Promise<string> {
+  const name = `פגישה ${sessionNumber}`;
+  const existing = await findSubfolder(meetingsFolderId, name);
+  if (existing) return existing;
+  return createFolder(name, meetingsFolderId);
+}
+
+// Creates a fresh folder (with its own "תרגולים" and "פגישות והקלטות"
+// subfolders, matching the coach's existing structure) for a new client
+// under the shared parent folder. Best-effort — callers should treat
+// failure as non-fatal (client creation shouldn't fail just because Drive
+// is briefly unreachable).
 export async function createClientFolder(
   clientName: string
-): Promise<{ folderId: string; exercisesFolderId: string }> {
+): Promise<{ folderId: string; exercisesFolderId: string; meetingsFolderId: string }> {
   const parentId = await getOrCreateClientsParentFolder();
   const folderId = await createFolder(clientName, parentId);
   const exercisesFolderId = await createFolder(EXERCISES_SUBFOLDER_NAME, folderId);
+  const meetingsFolderId = await createFolder(MEETINGS_SUBFOLDER_NAME, folderId);
   await shareWithServiceAccount(folderId);
-  return { folderId, exercisesFolderId };
+  return { folderId, exercisesFolderId, meetingsFolderId };
 }
 
 // Starts a resumable upload session and hands back its session URL. The
