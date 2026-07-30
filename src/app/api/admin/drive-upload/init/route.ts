@@ -25,12 +25,12 @@ export async function POST(req: NextRequest) {
   const filename = typeof body?.filename === "string" ? body.filename : "";
   const mimeType = typeof body?.mimeType === "string" ? body.mimeType : "application/octet-stream";
   const fileSize = typeof body?.fileSize === "number" ? body.fileSize : 0;
-  const sessionNumber = typeof body?.sessionNumber === "number" ? body.sessionNumber : null;
+  const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
 
   if (!clientId || !folder || !filename || !fileSize) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
-  if (folder === "main" && !sessionNumber) {
+  if (folder === "main" && !sessionId) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
 
@@ -43,18 +43,22 @@ export async function POST(req: NextRequest) {
   } else if (!client.driveFolderId) {
     folderId = null;
   } else {
-    // Each session gets its own "פגישה N" folder inside "פגישות והקלטות" —
-    // both created eagerly for new clients, but a folder linked before this
-    // existed (or before this specific session number came up) may still
-    // be missing either one, so create on demand and persist the meetings
-    // folder for next time.
+    const session = await prisma.lessonSession.findUnique({ where: { id: sessionId } });
+    if (!session || session.clientId !== clientId) {
+      return NextResponse.json({ error: "השיעור לא נמצא" }, { status: 404 });
+    }
+    // Each session gets its own "פגישה N - תאריך" folder inside "פגישות
+    // והקלטות" — both created eagerly for new clients, but a folder linked
+    // before this existed (or before this specific session came up) may
+    // still be missing either one, so create on demand and persist the
+    // meetings folder for next time.
     try {
       let meetingsFolderId = client.driveMeetingsFolderId;
       if (!meetingsFolderId) {
         meetingsFolderId = await findOrCreateMeetingsFolder(client.driveFolderId);
         await prisma.client.update({ where: { id: clientId }, data: { driveMeetingsFolderId: meetingsFolderId } });
       }
-      folderId = await findOrCreateSessionFolder(meetingsFolderId, sessionNumber!);
+      folderId = await findOrCreateSessionFolder(meetingsFolderId, session.number, session.createdAt);
     } catch (e) {
       console.error("Failed to resolve session Drive folder", e);
       return NextResponse.json({ error: "לא ניתן להכין תיקיית פגישה בדרייב" }, { status: 502 });

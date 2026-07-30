@@ -62,7 +62,7 @@ export async function tryUploadFileToDrive(
   clientId: string,
   folder: "main" | "exercises",
   onProgress?: (percentage: number) => void,
-  sessionNumber?: number
+  sessionId?: string
 ): Promise<{ url: string; fileName: string } | null> {
   if (!(await isDriveConnected())) return null;
 
@@ -76,7 +76,7 @@ export async function tryUploadFileToDrive(
       filename: file.name,
       mimeType: file.type || "application/octet-stream",
       fileSize: file.size,
-      sessionNumber,
+      sessionId,
     }),
   });
   if (!initRes.ok) return null; // no folder linked (yet), or Drive unreachable
