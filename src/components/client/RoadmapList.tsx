@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, DocIcon, PlayTriangle, Waveform } from "@/components/icons";
-import { AudioEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
+import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
 import { driveEmbedUrl } from "@/lib/external-links";
 
 type Item = {
@@ -55,22 +55,27 @@ export function RoadmapList({ items }: { items: Item[] }) {
                     </div>
                   ))}
                 {item.hasFile && item.fileUrl && (
-                  <div className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5">
-                    <DocIcon />
-                    <div className="flex-1 text-[13px] text-ink truncate">{item.fileName || "קובץ"}</div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <a
-                        href={item.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[12.5px] font-semibold text-brand"
-                      >
-                        צפייה
-                      </a>
-                      <a href={item.fileUrl} download={item.fileName || true} className="text-[12.5px] font-semibold text-brand">
-                        הורדה
-                      </a>
+                  <div>
+                    <div className="flex items-center gap-2.5 bg-tile rounded-[10px] px-3 py-2.5">
+                      <DocIcon />
+                      <div className="flex-1 text-[13px] text-ink truncate">{item.fileName || "קובץ"}</div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <a
+                          href={item.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12.5px] font-semibold text-brand"
+                        >
+                          פתיחה בחלון חדש
+                        </a>
+                        {!driveEmbedUrl(item.fileUrl) && (
+                          <a href={item.fileUrl} download={item.fileName || true} className="text-[12.5px] font-semibold text-brand">
+                            הורדה
+                          </a>
+                        )}
+                      </div>
                     </div>
+                    <DocEmbed url={item.fileUrl} className="w-full rounded-[10px] mt-2" />
                   </div>
                 )}
                 {hasNothing && (
