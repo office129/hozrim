@@ -17,10 +17,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: { clientId, title, number: count + 1 },
   });
 
-  // Best-effort: create the session's "פגישה N" Drive folder right away
-  // instead of waiting for the first upload, so it's already there and
-  // ready — matching what the coach expects to see the moment a session
-  // is added, not only once a recording comes in.
+  // Best-effort: create the session's own Drive folder (named exactly
+  // after its title) right away instead of waiting for the first upload,
+  // so it's already there and ready — matching what the coach expects to
+  // see the moment a session is added, not only once a recording comes in.
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (client?.driveFolderId) {
     try {
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         meetingsFolderId = await findOrCreateMeetingsFolder(client.driveFolderId);
         await prisma.client.update({ where: { id: clientId }, data: { driveMeetingsFolderId: meetingsFolderId } });
       }
-      await findOrCreateSessionFolder(meetingsFolderId, session.number, session.createdAt);
+      await findOrCreateSessionFolder(meetingsFolderId, session.title);
     } catch (e) {
       console.error("Failed to create Drive folder for new session", e);
     }

@@ -222,41 +222,23 @@ export async function findOrCreateMeetingsFolder(clientFolderId: string): Promis
   return createFolder(MEETINGS_SUBFOLDER_NAME, clientFolderId);
 }
 
-function formatSessionFolderDate(date: Date): string {
-  // Always in Israel time regardless of the server's own timezone, so the
-  // date matches what the coach actually expects to see, not whatever
-  // instant Vercel's servers happen to run in.
-  return new Intl.DateTimeFormat("he-IL", {
-    timeZone: "Asia/Jerusalem",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
-// Each session gets its own folder (e.g. "פגישה 3 - 30.07.2026") inside
-// "פגישות והקלטות", holding both the recording and its PDF summary
-// together — mirroring how the coach already thinks about sessions in the
-// app, with the date included so folders are identifiable at a glance
-// without opening the app.
-export async function findOrCreateSessionFolder(
-  meetingsFolderId: string,
-  sessionNumber: number,
-  sessionDate: Date
-): Promise<string> {
-  const name = `פגישה ${sessionNumber} - ${formatSessionFolderDate(sessionDate)}`;
-  const existing = await findSubfolder(meetingsFolderId, name);
+// Each session gets its own folder inside "פגישות והקלטות", named
+// exactly after the session's own title (one-to-one, whatever the coach
+// typed when creating it) — holding both the recording and its PDF
+// summary together.
+export async function findOrCreateSessionFolder(meetingsFolderId: string, sessionTitle: string): Promise<string> {
+  const existing = await findSubfolder(meetingsFolderId, sessionTitle);
   if (existing) return existing;
-  return createFolder(name, meetingsFolderId);
+  return createFolder(sessionTitle, meetingsFolderId);
 }
 
 // Same idea as findOrCreateSessionFolder, one folder per library item
-// (e.g. "שיעור 2") inside the general "ספריית תכנים" folder.
-export async function findOrCreateLibraryItemFolder(libraryFolderId: string, itemNumber: number): Promise<string> {
-  const name = `שיעור ${itemNumber}`;
-  const existing = await findSubfolder(libraryFolderId, name);
+// (named after the item's own title) inside the general "ספריית תכנים"
+// folder.
+export async function findOrCreateLibraryItemFolder(libraryFolderId: string, itemTitle: string): Promise<string> {
+  const existing = await findSubfolder(libraryFolderId, itemTitle);
   if (existing) return existing;
-  return createFolder(name, libraryFolderId);
+  return createFolder(itemTitle, libraryFolderId);
 }
 
 // Creates a fresh folder (with its own "תרגולים" and "פגישות והקלטות"
