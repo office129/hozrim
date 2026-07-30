@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { getAdminId, getClientId } from "@/lib/auth";
-import { fetchDriveFile } from "@/lib/google-drive";
+import { fetchDriveFile } from "@/lib/google-drive-oauth";
 
-// Proxies a Drive file's bytes through our own server (via a service
-// account that the coach shares their Drive folder with), so the browser
-// can play it in our own <video>/<audio> element instead of Google's own
-// embedded preview widget, which we don't control the look of.
+// Proxies a Drive file's bytes through our own server (via the coach's own
+// OAuth connection), so the browser can play it in our own <video>/<audio>
+// element instead of Google's own embedded preview widget, which we don't
+// control the look of.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ fileId: string }> }) {
   const adminId = await getAdminId();
   const clientId = await getClientId();

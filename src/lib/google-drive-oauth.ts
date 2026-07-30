@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { getServiceAccountEmail } from "@/lib/google-drive";
 
 // The coach's own Drive, connected via a real "sign in with Google" (OAuth)
-// flow — distinct from the read-only service account in google-drive.ts.
-// This lets the server write files using the coach's own storage quota.
+// flow. This lets the server both write files (using the coach's own
+// storage quota) and read them back for in-app display — the same
+// connection covers both, since the coach's account already owns
+// everything it uploads and needs no separate sharing step to read it.
 
 const CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
@@ -68,6 +69,13 @@ export async function connectWithCode(code: string, redirectUri: string) {
 
 export async function getConnection() {
   return prisma.googleDriveConnection.findFirst();
+}
+
+// Whether the in-app display proxy (streaming a Drive file's bytes through
+// our own <video>/<audio> elements) can currently work — needs both the
+// OAuth app credentials and an active connection to actually have a token.
+export async function isDriveReadEnabled(): Promise<boolean> {
+  return isDriveOAuthConfigured() && !!(await getConnection());
 }
 
 export async function disconnectDrive() {
@@ -156,35 +164,14 @@ async function findSubfolder(parentId: string, name: string): Promise<string | n
   return listRes.files[0]?.id ?? null;
 }
 
-export type ShareResult = { ok: true } | { ok: false; reason: "not_configured" | "request_failed"; detail?: string };
-
-// Files created via OAuth belong to the coach's own Google account and are
-// private by default — our read-only display proxy (google-drive.ts) reads
-// through a separate identity, a service account, which has no access to
-// them until explicitly granted. Sharing the client's top-level folder once
-// is enough: Drive resolves access by walking up a file's ancestors, so
-// everything already inside it (the "תרגולים" subfolder, files dropped in
-// manually) and everything added later is covered by the same grant.
-//
-// Returns a result instead of throwing so callers can decide for
-// themselves whether a failure matters — folder creation/linking treats it
-// as best-effort (shouldn't block on Drive being briefly unreachable),
-// while an admin-triggered "fix this now" action wants to surface exactly
-// what went wrong instead of a silent no-op that looks like success.
-export async function shareWithServiceAccount(folderId: string): Promise<ShareResult> {
-  const email = getServiceAccountEmail();
-  if (!email) return { ok: false, reason: "not_configured" };
-  try {
-    await driveApiFetch(`/files/${folderId}/permissions?sendNotificationEmail=false`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "reader", type: "user", emailAddress: email }),
-    });
-    return { ok: true };
-  } catch (e) {
-    console.error("Failed to share Drive folder with service account", e);
-    return { ok: false, reason: "request_failed", detail: e instanceof Error ? e.message : String(e) };
-  }
+// Streams a Drive file's bytes through the coach's own OAuth connection,
+// preserving Range support so the browser's native video/audio scrubber
+// works. The caller forwards the response status/headers/body as-is.
+export async function fetchDriveFile(fileId: string, rangeHeader: string | null): Promise<Response> {
+  const token = await getDriveAccessToken();
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (rangeHeader) headers.Range = rangeHeader;
+  return fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, { headers });
 }
 
 const EXERCISES_SUBFOLDER_NAME = "תרגולים";
@@ -229,7 +216,6 @@ export async function createClientFolder(
   const folderId = await createFolder(clientName, parentId);
   const exercisesFolderId = await createFolder(EXERCISES_SUBFOLDER_NAME, folderId);
   const meetingsFolderId = await createFolder(MEETINGS_SUBFOLDER_NAME, folderId);
-  await shareWithServiceAccount(folderId);
   return { folderId, exercisesFolderId, meetingsFolderId };
 }
 

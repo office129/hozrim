@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { driveFolderId } from "@/lib/external-links";
-import { findOrCreateExercisesFolder, findOrCreateMeetingsFolder, shareWithServiceAccount } from "@/lib/google-drive-oauth";
+import { findOrCreateExercisesFolder, findOrCreateMeetingsFolder } from "@/lib/google-drive-oauth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -74,11 +74,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } catch (e) {
       console.error("Failed to find/create meetings subfolder", e);
     }
-    // A folder linked here was created directly by the coach, not by us,
-    // so it was never shared with our read-only display proxy's service
-    // account — do that now so files inside it (and any dropped in later)
-    // are actually viewable in the app.
-    await shareWithServiceAccount(folderId);
   }
 
   if (data.email) {

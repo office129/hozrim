@@ -17,8 +17,6 @@ export function ClientDriveFolderRow({
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [fixing, setFixing] = useState(false);
-  const [fixDone, setFixDone] = useState(false);
 
   async function save() {
     if (!url.trim()) return;
@@ -33,20 +31,6 @@ export function ClientDriveFolderRow({
       setError(err instanceof ApiError ? err.message : "השמירה נכשלה");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function fixAccess() {
-    setFixing(true);
-    setError("");
-    setFixDone(false);
-    try {
-      await apiSend(`/api/admin/clients/${clientId}/drive-share`, "POST");
-      setFixDone(true);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "התיקון נכשל");
-    } finally {
-      setFixing(false);
     }
   }
 
@@ -67,14 +51,6 @@ export function ClientDriveFolderRow({
             <button onClick={() => setEditing(true)} className="text-[11.5px] text-muted underline cursor-pointer">
               שינוי
             </button>
-            <button
-              onClick={fixAccess}
-              disabled={fixing}
-              className="text-[11.5px] text-muted underline cursor-pointer disabled:opacity-50"
-            >
-              {fixing ? "מתקן…" : "תיקון הרשאות גישה"}
-            </button>
-            {fixDone && <span className="text-[11.5px] text-brand">בוצע</span>}
           </>
         )}
         {!driveFolderId && !editing && (
