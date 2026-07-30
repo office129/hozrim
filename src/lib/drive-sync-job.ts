@@ -215,3 +215,85 @@ export async function runDriveSyncJob() {
 
   return { ok: true as const, meetImport, folderSync };
 }
+
+// Meet recording import on its own, meant to run in the background after
+// an admin page has already been sent to the browser (see
+// `after()` in the authenticated admin layout) - since the Meet
+// Recordings folder now lives in the coach's own Drive rather than one
+// shared externally, there's no reason to only check it once a day; but
+// unlike the per-client/library folder sync, there's no single page whose
+// data it belongs to, so it can't block a page render the way those do
+// without slowing down every admin navigation.
+export async function syncMeetImportInBackground(): Promise<void> {
+  const connection = await getConnection();
+  if (!connection?.meetRecordingsFolderId) return;
+  try {
+    await runMeetImport(connection.meetRecordingsFolderId);
+  } catch (e) {
+    console.error("Failed to run background Meet import", e);
+  }
+}
+
+// Runs just the folder-level sync (reconcile + discover new folders,
+// same as runFolderSync) for a single client, scoped to that client's own
+// sessions — cheap enough to run inline whenever the coach opens that
+// client's page in the admin panel, so a folder created by hand in Drive
+// shows up right away instead of waiting for the once-a-day cron. Meet
+// recording import stays a scheduled/manual-only thing (see
+// runDriveSyncJob) — there's no "the coach is looking at this specific
+// page" moment that maps to it, since it isn't tied to one client.
+export async function syncClientFolders(clientId: string): Promise<void> {
+  const connection = await getConnection();
+  if (!connection) return;
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, driveFolderId: true, driveMeetingsFolderId: true },
+  });
+  if (!client?.driveFolderId) return;
+
+  const sessions = await prisma.lessonSession.findMany({
+    where: { clientId },
+    include: { summaryFiles: { select: { id: true, url: true } } },
+  });
+
+  await Promise.all(
+    sessions.map(async (session) => {
+      try {
+        await reconcileSessionFolder(session, client);
+      } catch (e) {
+        console.error("Failed to reconcile session Drive folder", session.id, e);
+      }
+    })
+  );
+
+  try {
+    await discoverNewSessionFolders(client);
+  } catch (e) {
+    console.error("Failed to discover new session Drive folders", client.id, e);
+  }
+}
+
+// Same idea as syncClientFolders, for "ספריית תכנים" - run whenever the
+// coach opens the library admin page.
+export async function syncLibraryFolders(): Promise<void> {
+  const connection = await getConnection();
+  if (!connection) return;
+
+  const items = await prisma.libraryItem.findMany();
+  await Promise.all(
+    items.map(async (item) => {
+      try {
+        await reconcileLibraryItemFolder(item);
+      } catch (e) {
+        console.error("Failed to reconcile library item Drive folder", item.id, e);
+      }
+    })
+  );
+
+  try {
+    await discoverNewLibraryItemFolders();
+  } catch (e) {
+    console.error("Failed to discover new library item Drive folders", e);
+  }
+}

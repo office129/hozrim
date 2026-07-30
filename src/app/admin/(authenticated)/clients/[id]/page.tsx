@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ClientDetailView } from "@/components/admin/ClientDetailView";
+import { syncClientFolders } from "@/lib/drive-sync-job";
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  // Best-effort: catches up on anything created/removed by hand in this
+  // client's Drive folders since the last daily sync, so it's reflected
+  // here without waiting for the scheduled run. A failure (Drive down,
+  // not connected) shouldn't block the page from loading.
+  await syncClientFolders(id).catch((e) => console.error("Failed to sync client Drive folders", id, e));
 
   const client = await prisma.client.findUnique({
     where: { id },
