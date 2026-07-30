@@ -110,8 +110,11 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
     const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
     const deltaX = endX - touchStartX.current;
     touchStartX.current = null;
-    if (deltaX <= -SWIPE_THRESHOLD) setPage((p) => Math.min(numPages, p + 1));
-    else if (deltaX >= SWIPE_THRESHOLD) setPage((p) => Math.max(1, p - 1));
+    // RTL paging convention: swiping left-to-right (finger moves right)
+    // advances, right-to-left goes back — matching how a Hebrew document
+    // is naturally paged.
+    if (deltaX >= SWIPE_THRESHOLD) setPage((p) => Math.min(numPages, p + 1));
+    else if (deltaX <= -SWIPE_THRESHOLD) setPage((p) => Math.max(1, p - 1));
   }
 
   return (
@@ -126,9 +129,12 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
         error={<div className="text-xs text-danger text-center py-6">לא ניתן לטעון את המסמך</div>}
       >
         {width && isDesktop && (
-          <div className="flex flex-col gap-2">
+          <div
+            className="flex flex-col gap-2 overflow-y-auto rounded-[10px] border border-border bg-card p-2"
+            style={{ maxHeight: 600 }}
+          >
             {Array.from({ length: numPages }, (_, i) => (
-              <LazyPage key={i + 1} pageNumber={i + 1} width={width} />
+              <LazyPage key={i + 1} pageNumber={i + 1} width={width - 16} />
             ))}
           </div>
         )}
