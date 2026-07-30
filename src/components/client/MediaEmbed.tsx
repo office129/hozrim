@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { driveEmbedUrl, driveFileId } from "@/lib/external-links";
+
+// pdf.js (used inside PdfViewer) references browser-only globals like
+// DOMMatrix at module-evaluation time, which crashes during server-side
+// rendering — ssr: false keeps it out of the SSR pass entirely, only ever
+// loading in the browser.
+const PdfViewer = dynamic(() => import("./PdfViewer").then((m) => m.PdfViewer), { ssr: false });
 
 let driveProxyEnabled: Promise<boolean> | null = null;
 
@@ -84,11 +91,25 @@ export function AudioEmbed({ url, className }: { url: string; className?: string
 
 export function DocEmbed({ url, className }: { url: string; className?: string }) {
   const proxySrc = useDriveProxySrc(url);
+  const fileId = driveFileId(url);
   const embed = driveEmbedUrl(url);
 
   if (proxySrc === undefined) return <div className={className} style={{ height: 340 }} />;
-  // A PDF preview (proxied Drive bytes, Drive's own preview, or a
-  // browser's native PDF viewer) needs real page height to be legible —
-  // a link row isn't a substitute.
-  return <iframe src={proxySrc || embed || url} className={className} style={{ border: 0, height: 340 }} />;
+
+  // Rendered with react-pdf (canvas-based) rather than an iframe — mobile
+  // browsers don't reliably render PDFs embedded in an iframe the way
+  // desktop Chrome/Firefox/Edge do, so an iframe here would look fine on a
+  // computer and show a generic "open externally" placeholder on a phone.
+  // A direct URL works whenever it's not a Drive link at all (Blob/local
+  // files are already raw, fetchable PDF bytes) or when our own Drive
+  // proxy resolved it.
+  const pdfSrc = proxySrc || (!fileId ? url : null);
+  if (pdfSrc) return <PdfViewer url={pdfSrc} className={className} />;
+
+  // A Drive link with the display proxy unavailable can't be fetched as
+  // raw bytes — fall back to Google's own preview as a last resort.
+  if (embed) {
+    return <iframe src={embed} className={className} style={{ border: 0, height: 340 }} />;
+  }
+  return null;
 }

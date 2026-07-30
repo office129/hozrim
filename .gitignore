@@ -20,6 +20,9 @@
 # production
 /build
 
+# generated at install/build time — see scripts/copy-pdf-worker.mjs
+/public/pdf.worker.min.mjs
+
 # misc
 .DS_Store
 *.pem
