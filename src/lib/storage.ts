@@ -4,6 +4,8 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
 import { put, del } from "@vercel/blob";
+import { driveFileId } from "@/lib/external-links";
+import { getConnection, trashDriveFile } from "@/lib/google-drive-oauth";
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./storage/uploads");
 
@@ -106,6 +108,23 @@ export async function deleteUploadByUrl(url: string | null | undefined) {
       await del(url);
     } catch {
       // already gone — fine
+    }
+    return;
+  }
+  const fileId = driveFileId(url);
+  if (fileId) {
+    // Move to Drive's own trash rather than a permanent delete — a
+    // mistaken delete in the app is recoverable from Drive for 30 days,
+    // same margin Drive gives for anything trashed by hand. Best-effort:
+    // no connection, or a file we don't actually own (e.g. a manually
+    // pasted link to something shared by someone else), just means there's
+    // nothing we're able to clean up on Drive's side.
+    if (await getConnection()) {
+      try {
+        await trashDriveFile(fileId);
+      } catch (e) {
+        console.error("Failed to trash Drive file", e);
+      }
     }
     return;
   }

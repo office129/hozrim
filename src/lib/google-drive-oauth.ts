@@ -117,6 +117,18 @@ async function driveApiFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
+// Moves a file to the Drive trash (not a permanent delete) when its
+// session/exercise/client is deleted from the app — recoverable from
+// Drive's own trash for 30 days in case of a mistaken delete, same
+// safety margin Drive itself gives for anything deleted by hand.
+export async function trashDriveFile(fileId: string): Promise<void> {
+  await driveApiFetch(`/files/${fileId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+}
+
 function escapeDriveQueryValue(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
