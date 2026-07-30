@@ -10,6 +10,10 @@ const SWIPE_THRESHOLD = 50;
 // switch between mobile and desktop layouts.
 const DESKTOP_QUERY = "(min-width: 768px)";
 
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.5;
+const ZOOM_STEP = 0.25;
+
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
@@ -86,6 +90,7 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
   const [width, setWidth] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
   const isDesktop = useIsDesktop();
@@ -129,14 +134,33 @@ export function PdfViewer({ url, className }: { url: string; className?: string 
         error={<div className="text-xs text-danger text-center py-6">לא ניתן לטעון את המסמך</div>}
       >
         {width && isDesktop && (
-          <div
-            className="flex flex-col gap-2 overflow-y-auto rounded-[10px] border border-border bg-card p-2"
-            style={{ maxHeight: 600 }}
-          >
-            {Array.from({ length: numPages }, (_, i) => (
-              <LazyPage key={i + 1} pageNumber={i + 1} width={width - 16} />
-            ))}
-          </div>
+          <>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <button
+                onClick={() => setZoom((z) => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(2)))}
+                disabled={zoom <= MIN_ZOOM}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-border-strong text-ink disabled:opacity-40 cursor-pointer"
+              >
+                −
+              </button>
+              <div className="text-xs text-muted w-11 text-center">{Math.round(zoom * 100)}%</div>
+              <button
+                onClick={() => setZoom((z) => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
+                disabled={zoom >= MAX_ZOOM}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-border-strong text-ink disabled:opacity-40 cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+            <div
+              className="flex flex-col items-center gap-2 overflow-auto rounded-[10px] border border-border bg-card p-2"
+              style={{ maxHeight: 600 }}
+            >
+              {Array.from({ length: numPages }, (_, i) => (
+                <LazyPage key={i + 1} pageNumber={i + 1} width={(width - 16) * zoom} />
+              ))}
+            </div>
+          </>
         )}
         {width && !isDesktop && (
           <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
