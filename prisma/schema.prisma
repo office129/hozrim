@@ -45,10 +45,30 @@ model Client {
 // instead of proxying through Vercel Blob. Single row — one practice, one
 // Drive.
 model GoogleDriveConnection {
-  id             String   @id @default(cuid())
-  connectedEmail String
-  refreshToken   String
-  createdAt      DateTime @default(now())
+  id                     String   @id @default(cuid())
+  connectedEmail         String
+  refreshToken           String
+  createdAt              DateTime @default(now())
+  meetRecordingsFolderId String? // the "Meet Recordings" folder shared with this account by whoever organizes the actual Meet calls — scanned daily for new recordings to auto-file
+}
+
+// A log of every Meet recording the daily import job has looked at, so it
+// never processes the same Drive file twice. "matched" means it was
+// copied into a client's session automatically (name found, exactly one
+// client); "ambiguous"/"unmatched" need an admin to pick the right client
+// (or dismiss it) from the review queue; "ignored" is a dismissed one.
+model MeetRecordingImport {
+  id            String    @id @default(cuid())
+  driveFileId   String    @unique
+  fileName      String
+  recordingDate DateTime?
+  status        String
+  matchedNames  String? // comma-separated client names the filename matched, shown to the admin when reviewing an ambiguous/unmatched one
+  clientId      String?
+  sessionId     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([status])
 }
 
 // A registered biometric/fingerprint login (WebAuthn credential) — the

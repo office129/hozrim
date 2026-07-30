@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/meet-import",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}

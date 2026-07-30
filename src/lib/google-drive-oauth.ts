@@ -133,6 +133,32 @@ function escapeDriveQueryValue(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// Lists the actual files (not subfolders) directly inside a folder — used
+// to scan a shared "Meet Recordings" folder for new recordings.
+export async function listFolderFiles(
+  folderId: string
+): Promise<{ id: string; name: string; createdTime: string }[]> {
+  const q = `'${folderId}' in parents and trashed=false and mimeType != 'application/vnd.google-apps.folder'`;
+  const res = (await driveApiFetch(
+    `/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&pageSize=1000`
+  )) as { files: { id: string; name: string; createdTime: string }[] };
+  return res.files;
+}
+
+// Copies a file into another folder — used to bring a Meet recording
+// (which lives in a folder shared with, but not owned by, this account)
+// into the matched client's own session folder without needing to move
+// or take ownership of the original, which isn't reliably possible across
+// two different Google accounts.
+export async function copyDriveFile(fileId: string, destinationFolderId: string, name?: string): Promise<string> {
+  const created = (await driveApiFetch(`/files/${fileId}/copy?fields=id`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parents: [destinationFolderId], ...(name ? { name } : {}) }),
+  })) as { id: string };
+  return created.id;
+}
+
 const CLIENTS_PARENT_FOLDER_NAME = "חוזרים לבראשית - לקוחות";
 // Cached per warm serverless instance only — harmless if it misses on a
 // cold start, since the lookup-or-create below is idempotent either way.
