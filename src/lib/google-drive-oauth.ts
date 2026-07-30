@@ -189,45 +189,59 @@ export async function copyDriveFile(fileId: string, destinationFolderId: string,
 }
 
 const CLIENTS_PARENT_FOLDER_NAME = "חוזרים לבראשית - לקוחות";
-// Cached per warm serverless instance only — harmless if it misses on a
-// cold start, since the lookup-or-create below is idempotent either way.
-let cachedParentFolderId: string | null = null;
 
+// Persisted on the connection row (not just cached in memory - a
+// serverless instance's memory doesn't survive between requests, so an
+// in-memory-only cache re-does this name-based lookup constantly) so
+// that renaming this folder in Drive later can't cause the lookup to
+// miss it and create a duplicate - once found or created, its ID is
+// fixed here regardless of what the folder gets renamed to afterward.
 async function getOrCreateClientsParentFolder(): Promise<string> {
-  if (cachedParentFolderId) return cachedParentFolderId;
+  const connection = await getConnection();
+  if (connection?.clientsParentFolderId) return connection.clientsParentFolderId;
 
   const q = `mimeType='application/vnd.google-apps.folder' and name='${escapeDriveQueryValue(CLIENTS_PARENT_FOLDER_NAME)}' and trashed=false and 'root' in parents`;
   const listRes = (await driveApiFetch(`/files?q=${encodeURIComponent(q)}&fields=files(id)`)) as {
     files: { id: string }[];
   };
+
+  let folderId: string;
   if (listRes.files.length) {
-    cachedParentFolderId = listRes.files[0].id;
-    return cachedParentFolderId;
+    folderId = listRes.files[0].id;
+  } else {
+    const created = (await driveApiFetch(`/files?fields=id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: CLIENTS_PARENT_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
+    })) as { id: string };
+    folderId = created.id;
   }
 
-  const created = (await driveApiFetch(`/files?fields=id`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: CLIENTS_PARENT_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
-  })) as { id: string };
-  cachedParentFolderId = created.id;
-  return cachedParentFolderId;
+  if (connection) {
+    await prisma.googleDriveConnection.update({ where: { id: connection.id }, data: { clientsParentFolderId: folderId } });
+  }
+  return folderId;
 }
 
 const LIBRARY_FOLDER_NAME = "ספריית תכנים";
-// Cached per warm serverless instance only, same as the clients parent
-// folder above.
-let cachedLibraryFolderId: string | null = null;
 
 // A general (not per-client) folder for the opening-content library items,
 // living as a sibling of the per-client folders under the same shared
-// parent.
+// parent. Same persisted-by-ID reasoning as getOrCreateClientsParentFolder
+// above - can also be set explicitly (see the "meet-folder"-style admin
+// route) to repoint it at a specific folder, e.g. after renaming it.
 export async function getOrCreateLibraryFolder(): Promise<string> {
-  if (cachedLibraryFolderId) return cachedLibraryFolderId;
+  const connection = await getConnection();
+  if (connection?.libraryFolderId) return connection.libraryFolderId;
+
   const parentId = await getOrCreateClientsParentFolder();
   const existing = await findSubfolder(parentId, LIBRARY_FOLDER_NAME);
-  cachedLibraryFolderId = existing || (await createFolder(LIBRARY_FOLDER_NAME, parentId));
-  return cachedLibraryFolderId;
+  const folderId = existing || (await createFolder(LIBRARY_FOLDER_NAME, parentId));
+
+  if (connection) {
+    await prisma.googleDriveConnection.update({ where: { id: connection.id }, data: { libraryFolderId: folderId } });
+  }
+  return folderId;
 }
 
 async function createFolder(name: string, parentId: string): Promise<string> {

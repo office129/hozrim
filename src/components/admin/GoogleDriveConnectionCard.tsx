@@ -19,6 +19,7 @@ export function GoogleDriveConnectionCard() {
     connected: boolean;
     email: string | null;
     meetRecordingsFolderId: string | null;
+    libraryFolderId: string | null;
   } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState("");
@@ -26,6 +27,10 @@ export function GoogleDriveConnectionCard() {
   const [meetFolderUrl, setMeetFolderUrl] = useState("");
   const [savingMeetFolder, setSavingMeetFolder] = useState(false);
   const [meetFolderError, setMeetFolderError] = useState("");
+  const [editingLibraryFolder, setEditingLibraryFolder] = useState(false);
+  const [libraryFolderUrl, setLibraryFolderUrl] = useState("");
+  const [savingLibraryFolder, setSavingLibraryFolder] = useState(false);
+  const [libraryFolderError, setLibraryFolderError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState("");
   const [syncError, setSyncError] = useState("");
@@ -33,7 +38,9 @@ export function GoogleDriveConnectionCard() {
   useEffect(() => {
     apiGet("/api/admin/drive-oauth/status")
       .then(setStatus)
-      .catch(() => setStatus({ configured: false, connected: false, email: null, meetRecordingsFolderId: null }));
+      .catch(() =>
+        setStatus({ configured: false, connected: false, email: null, meetRecordingsFolderId: null, libraryFolderId: null })
+      );
 
     if (searchParams.get("drive_connected")) {
       setMessage("גוגל דרייב חובר בהצלחה!");
@@ -71,6 +78,23 @@ export function GoogleDriveConnectionCard() {
       setMeetFolderError(err instanceof ApiError ? err.message : "השמירה נכשלה");
     } finally {
       setSavingMeetFolder(false);
+    }
+  }
+
+  async function saveLibraryFolder() {
+    if (!libraryFolderUrl.trim()) return;
+    setSavingLibraryFolder(true);
+    setLibraryFolderError("");
+    try {
+      await apiSend("/api/admin/drive-oauth/library-folder", "PATCH", { folderUrl: libraryFolderUrl.trim() });
+      setStatus((prev) => (prev ? { ...prev, libraryFolderId: "set" } : prev));
+      setEditingLibraryFolder(false);
+      setLibraryFolderUrl("");
+      router.refresh();
+    } catch (err) {
+      setLibraryFolderError(err instanceof ApiError ? err.message : "השמירה נכשלה");
+    } finally {
+      setSavingLibraryFolder(false);
     }
   }
 
@@ -216,6 +240,61 @@ export function GoogleDriveConnectionCard() {
           {meetFolderError && <div className="text-danger text-xs mt-1.5">{meetFolderError}</div>}
           <div className="text-[11.5px] text-muted mt-1.5">
             הקלטות חדשות בתיקייה הזו ייבדקו פעם ביום ויועברו אוטומטית לתיקיית הלקוח/ה המתאימ/ה, לפי שם שמופיע בשם ההקלטה.
+          </div>
+
+          <div className="flex items-center gap-2.5 pt-2 mt-2 border-t border-border">
+            <span className="text-[13px] text-muted">תיקיית ספריית תכנים:</span>
+            {status.libraryFolderId && !editingLibraryFolder && (
+              <>
+                <span className="text-[13px] text-ink">מוגדרת</span>
+                <button
+                  onClick={() => setEditingLibraryFolder(true)}
+                  className="text-[11.5px] text-muted underline cursor-pointer"
+                >
+                  שינוי
+                </button>
+              </>
+            )}
+            {!status.libraryFolderId && !editingLibraryFolder && (
+              <button
+                onClick={() => setEditingLibraryFolder(true)}
+                className="text-[13px] font-semibold text-brand underline cursor-pointer"
+              >
+                הגדרת תיקייה
+              </button>
+            )}
+          </div>
+          {editingLibraryFolder && (
+            <div className="flex items-center gap-2 mt-2">
+              <Input
+                autoFocus
+                value={libraryFolderUrl}
+                onChange={(e) => setLibraryFolderUrl(e.target.value)}
+                placeholder="הדבק/י כאן קישור לתיקיית ספריית התכנים בדרייב"
+                className="flex-1 min-w-0 py-1.5 px-2.5 text-[13px]"
+              />
+              <button
+                onClick={saveLibraryFolder}
+                disabled={savingLibraryFolder}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-brand text-on-brand text-xs cursor-pointer disabled:opacity-50"
+              >
+                {savingLibraryFolder ? "שומר…" : "שמירה"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingLibraryFolder(false);
+                  setLibraryFolderUrl("");
+                  setLibraryFolderError("");
+                }}
+                className="shrink-0 px-2.5 py-1.5 rounded-lg border border-border-strong text-muted text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+            </div>
+          )}
+          {libraryFolderError && <div className="text-danger text-xs mt-1.5">{libraryFolderError}</div>}
+          <div className="text-[11.5px] text-muted mt-1.5">
+            אם משנים את שם התיקייה הזו בדרייב, אפשר להצביע כאן על התיקייה הנכונה כדי שהאפליקציה תמשיך להשתמש בה (במקום ליצור תיקייה כפולה).
           </div>
         </div>
       )}

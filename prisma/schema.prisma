@@ -50,6 +50,8 @@ model GoogleDriveConnection {
   refreshToken           String
   createdAt              DateTime @default(now())
   meetRecordingsFolderId String? // the "Meet Recordings" folder shared with this account by whoever organizes the actual Meet calls — scanned daily for new recordings to auto-file
+  clientsParentFolderId  String? // the top-level "חוזרים לבראשית - לקוחות" folder, persisted by ID once found/created so renaming it in Drive later doesn't cause a name-based lookup to miss it and create a duplicate
+  libraryFolderId        String? // the "ספריית תכנים" folder, same idea as clientsParentFolderId
 }
 
 // A log of every Meet recording the daily import job has looked at, so it

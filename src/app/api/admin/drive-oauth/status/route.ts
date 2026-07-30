@@ -14,5 +14,6 @@ export async function GET() {
     connected: !!connection,
     email: connection?.connectedEmail ?? null,
     meetRecordingsFolderId: connection?.meetRecordingsFolderId ?? null,
+    libraryFolderId: connection?.libraryFolderId ?? null,
   });
 }
