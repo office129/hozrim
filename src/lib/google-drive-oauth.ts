@@ -134,14 +134,17 @@ function escapeDriveQueryValue(value: string) {
 }
 
 // Lists the actual files (not subfolders) directly inside a folder — used
-// to scan a shared "Meet Recordings" folder for new recordings.
+// to scan a shared "Meet Recordings" folder for new recordings, and to
+// reconcile a client's session/library folders against what the app
+// already knows about (mimeType lets the caller tell a video/audio
+// recording apart from a PDF summary).
 export async function listFolderFiles(
   folderId: string
-): Promise<{ id: string; name: string; createdTime: string }[]> {
+): Promise<{ id: string; name: string; createdTime: string; mimeType: string }[]> {
   const q = `'${folderId}' in parents and trashed=false and mimeType != 'application/vnd.google-apps.folder'`;
   const res = (await driveApiFetch(
-    `/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&pageSize=1000`
-  )) as { files: { id: string; name: string; createdTime: string }[] };
+    `/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime,mimeType)&pageSize=1000`
+  )) as { files: { id: string; name: string; createdTime: string; mimeType: string }[] };
   return res.files;
 }
 

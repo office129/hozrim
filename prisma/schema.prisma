@@ -98,6 +98,7 @@ model LessonSession {
   fileUrl       String?
   fileName      String?
   durationSec   Int?
+  driveFolderId String? // this session's own Drive folder — cached so the sync job doesn't have to look it up by name every run
 
   summaryText  String?
   summaryFiles SessionSummaryFile[]
@@ -156,6 +157,7 @@ model LibraryItem {
   audioFileName String?
   fileUrl       String?
   fileName      String?
+  driveFolderId String? // this item's own Drive folder — cached so the sync job doesn't have to look it up by name every run
 
   createdAt DateTime @default(now())
 }
