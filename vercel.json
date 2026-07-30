@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/meet-import",
-      "schedule": "0 4 * * *"
+      "schedule": "0 9,14,19 * * *"
     }
   ]
 }
