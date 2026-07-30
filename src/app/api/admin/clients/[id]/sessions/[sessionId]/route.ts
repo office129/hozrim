@@ -19,27 +19,17 @@ export async function PATCH(
     mediaType?: string;
     fileUrl?: string | null;
     fileName?: string | null;
-    summaryFileUrl?: string | null;
-    summaryFileName?: string | null;
   } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
   if (typeof body?.summaryText === "string") data.summaryText = body.summaryText;
   if (body?.mediaType === "video" || body?.mediaType === "audio") data.mediaType = body.mediaType;
 
   let previousFileUrl: string | null = null;
-  let previousSummaryFileUrl: string | null = null;
-  const needsExisting =
-    typeof body?.fileUrl === "string" || typeof body?.summaryFileUrl === "string" || body?.removeSummaryFile === true;
+  const needsExisting = typeof body?.fileUrl === "string";
   const existing = needsExisting
     ? await prisma.lessonSession.findFirst({ where: { id: sessionId, clientId } })
     : null;
   if (needsExisting && !existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
-
-  if (body?.removeSummaryFile === true) {
-    previousSummaryFileUrl = existing!.summaryFileUrl;
-    data.summaryFileUrl = null;
-    data.summaryFileName = null;
-  }
 
   if (typeof body?.fileUrl === "string") {
     if (!isHttpUrl(body.fileUrl)) {
@@ -50,27 +40,17 @@ export async function PATCH(
     data.fileName = typeof body?.fileName === "string" && body.fileName.trim() ? body.fileName.trim() : body.fileUrl;
   }
 
-  if (typeof body?.summaryFileUrl === "string") {
-    if (!isHttpUrl(body.summaryFileUrl)) {
-      return NextResponse.json({ error: "קישור לא תקין" }, { status: 400 });
-    }
-    previousSummaryFileUrl = existing!.summaryFileUrl;
-    data.summaryFileUrl = body.summaryFileUrl;
-    data.summaryFileName =
-      typeof body?.summaryFileName === "string" && body.summaryFileName.trim()
-        ? body.summaryFileName.trim()
-        : body.summaryFileUrl;
-  }
-
   const result = await prisma.lessonSession.updateMany({
     where: { id: sessionId, clientId },
     data,
   });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
   if (data.fileUrl !== undefined && previousFileUrl) await deleteUploadByUrl(previousFileUrl);
-  if (data.summaryFileUrl !== undefined && previousSummaryFileUrl) await deleteUploadByUrl(previousSummaryFileUrl);
 
-  const session = await prisma.lessonSession.findUnique({ where: { id: sessionId } });
+  const session = await prisma.lessonSession.findUnique({
+    where: { id: sessionId },
+    include: { summaryFiles: { orderBy: { order: "asc" } } },
+  });
   return NextResponse.json({ session });
 }
 
@@ -82,11 +62,16 @@ export async function DELETE(
   if (isResponse(admin)) return admin;
   const { id: clientId, sessionId } = await params;
 
-  const existing = await prisma.lessonSession.findFirst({ where: { id: sessionId, clientId } });
+  const existing = await prisma.lessonSession.findFirst({
+    where: { id: sessionId, clientId },
+    include: { summaryFiles: true },
+  });
   if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
 
   await deleteUploadByUrl(existing.fileUrl);
-  await deleteUploadByUrl(existing.summaryFileUrl);
+  for (const f of existing.summaryFiles) {
+    await deleteUploadByUrl(f.url);
+  }
   await prisma.lessonSession.delete({ where: { id: sessionId } });
 
   const remaining = await prisma.lessonSession.findMany({

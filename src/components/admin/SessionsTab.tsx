@@ -20,7 +20,7 @@ type SessionData = {
   mediaType: string | null;
   fileName: string | null;
   summaryText: string | null;
-  summaryFileName: string | null;
+  summaryFiles: { id: string; url: string; fileName: string }[];
 };
 
 export function SessionsTab({ clientId, sessions }: { clientId: string; sessions: SessionData[] }) {
@@ -91,7 +91,7 @@ function SessionRow({
     setError("");
     setMediaProgress(0);
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "main", setMediaProgress, session.number);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main", setMediaProgress, session.id);
       const direct = toDrive || (await tryUploadFileDirect(file, mediaType, `clients/${clientId}`, setMediaProgress));
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
@@ -140,11 +140,11 @@ function SessionRow({
   async function handleSummaryFile(file: File) {
     setError("");
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "main", undefined, session.number);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "main", undefined, session.id);
       if (toDrive) {
-        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", {
-          summaryFileUrl: toDrive.url,
-          summaryFileName: toDrive.fileName,
+        await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-files`, "POST", {
+          url: toDrive.url,
+          fileName: toDrive.fileName,
         });
         router.refresh();
         return;
@@ -162,7 +162,7 @@ function SessionRow({
   async function handleSummaryLink(url: string) {
     setError("");
     try {
-      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", { summaryFileUrl: url });
+      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-files`, "POST", { url });
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "הקישור לא נשמר");
@@ -175,11 +175,11 @@ function SessionRow({
     router.refresh();
   }
 
-  async function deleteSummaryFile() {
+  async function deleteSummaryFile(fileId: string) {
     if (!confirm("למחוק את קובץ ה-PDF?")) return;
     setError("");
     try {
-      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}`, "PATCH", { removeSummaryFile: true });
+      await apiSend(`/api/admin/clients/${clientId}/sessions/${session.id}/summary-files/${fileId}`, "DELETE");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "המחיקה נכשלה");
@@ -248,19 +248,27 @@ function SessionRow({
           placeholder="מה תרצה/י שהלקוח/ה יראה כסיכום לפגישה הזו..."
           className="min-h-[70px] text-[13px]"
         />
-        <div className="flex flex-wrap items-center gap-2.5 mt-2">
+        {session.summaryFiles.length === 0 && (
+          <div className="text-xs text-muted mt-2">לא הועלה קובץ PDF</div>
+        )}
+        {session.summaryFiles.map((f) => (
+          <div key={f.id} className="flex items-center gap-2.5 mt-2">
+            <div className="flex-1 text-xs text-muted truncate">{f.fileName}</div>
+            <button
+              onClick={() => deleteSummaryFile(f.id)}
+              className="text-xs text-danger underline cursor-pointer shrink-0"
+            >
+              מחיקה
+            </button>
+          </div>
+        ))}
+        <div className="mt-2">
           <UploadOrLinkControl
             accept="application/pdf"
-            uploadLabel={session.summaryFileName ? "החלפת PDF" : "העלאת PDF"}
+            uploadLabel="הוספת PDF"
             onUpload={handleSummaryFile}
             onLink={handleSummaryLink}
           />
-          <div className="flex-1 text-xs text-muted truncate">{session.summaryFileName || "לא הועלה קובץ PDF"}</div>
-          {session.summaryFileName && (
-            <button onClick={deleteSummaryFile} className="text-xs text-danger underline cursor-pointer shrink-0">
-              מחיקה
-            </button>
-          )}
         </div>
       </div>
 

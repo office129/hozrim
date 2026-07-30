@@ -20,14 +20,15 @@ model Admin {
 }
 
 model Client {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  passwordHash      String
-  name              String
-  avatarUrl         String?
-  hasSeenProfileTip Boolean  @default(false)
-  totalSessions     Int      @default(6)
-  createdAt         DateTime @default(now())
+  id                        String   @id @default(cuid())
+  email                     String   @unique
+  passwordHash              String
+  name                      String
+  avatarUrl                 String?
+  hasSeenProfileTip         Boolean  @default(false)
+  hasSeenSessionCompleteTip Boolean  @default(false)
+  totalSessions             Int      @default(6)
+  createdAt                 DateTime @default(now())
 
   sessions               LessonSession[]
   exercises              Exercise[]
@@ -78,9 +79,8 @@ model LessonSession {
   fileName      String?
   durationSec   Int?
 
-  summaryText     String?
-  summaryFileUrl  String?
-  summaryFileName String?
+  summaryText  String?
+  summaryFiles SessionSummaryFile[]
 
   completed  Boolean @default(false)
   clientNote String?
@@ -88,6 +88,20 @@ model LessonSession {
   createdAt DateTime @default(now())
 
   @@index([clientId, number])
+}
+
+// One PDF summary document attached to a session — a session can have
+// more than one (e.g. two separate summary files from the same meeting).
+model SessionSummaryFile {
+  id        String        @id @default(cuid())
+  sessionId String
+  session   LessonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  url       String
+  fileName  String
+  order     Int
+  createdAt DateTime      @default(now())
+
+  @@index([sessionId, order])
 }
 
 // Per-client practice/exercise items — the "תרגולים" tab.

@@ -8,7 +8,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const client = await prisma.client.findUnique({
     where: { id },
     include: {
-      sessions: { orderBy: { number: "asc" } },
+      sessions: {
+        orderBy: { number: "asc" },
+        include: { summaryFiles: { orderBy: { order: "asc" } } },
+      },
       exercises: { orderBy: { number: "asc" } },
     },
   });

@@ -7,11 +7,18 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
   const clientId = (await getClientId())!;
   const { id } = await params;
 
-  const session = await prisma.lessonSession.findFirst({ where: { id, clientId } });
+  const [session, client] = await Promise.all([
+    prisma.lessonSession.findFirst({
+      where: { id, clientId },
+      include: { summaryFiles: { orderBy: { order: "asc" } } },
+    }),
+    prisma.client.findUnique({ where: { id: clientId }, select: { hasSeenSessionCompleteTip: true } }),
+  ]);
   if (!session) notFound();
 
   return (
     <SessionDetailView
+      showCompleteTip={!client?.hasSeenSessionCompleteTip}
       session={{
         id: session.id,
         number: session.number,
@@ -21,8 +28,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         fileUrl: session.fileUrl,
         completed: session.completed,
         summaryText: session.summaryText,
-        summaryFileUrl: session.summaryFileUrl,
-        summaryFileName: session.summaryFileName,
+        summaryFiles: session.summaryFiles,
         clientNote: session.clientNote,
       }}
     />

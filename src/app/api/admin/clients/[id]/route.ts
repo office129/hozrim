@@ -13,7 +13,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const client = await prisma.client.findUnique({
     where: { id },
     include: {
-      sessions: { orderBy: { number: "asc" } },
+      sessions: {
+        orderBy: { number: "asc" },
+        include: { summaryFiles: { orderBy: { order: "asc" } } },
+      },
       exercises: { orderBy: { number: "asc" } },
     },
   });
@@ -101,7 +104,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const client = await prisma.client.findUnique({
     where: { id },
-    include: { sessions: true, exercises: true },
+    include: { sessions: { include: { summaryFiles: true } }, exercises: true },
   });
   if (!client) return NextResponse.json({ error: "לא נמצא/ה" }, { status: 404 });
 
@@ -111,7 +114,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   await deleteUploadByUrl(client.avatarUrl);
   for (const s of client.sessions) {
     await deleteUploadByUrl(s.fileUrl);
-    await deleteUploadByUrl(s.summaryFileUrl);
+    for (const f of s.summaryFiles) {
+      await deleteUploadByUrl(f.url);
+    }
   }
   for (const e of client.exercises) {
     await deleteUploadByUrl(e.audioFileUrl);

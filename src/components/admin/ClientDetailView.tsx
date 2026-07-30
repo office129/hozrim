@@ -25,7 +25,7 @@ type ClientDetail = {
     mediaType: string | null;
     fileName: string | null;
     summaryText: string | null;
-    summaryFileName: string | null;
+    summaryFiles: { id: string; url: string; fileName: string }[];
   }[];
   exercises: { id: string; title: string; audioFileName: string | null; pdfFileName: string | null }[];
   notes: { sessionId: string; number: number; title: string; text: string | null }[];

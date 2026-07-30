@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
-import { saveUpload, deleteUploadByUrl, UploadValidationError } from "@/lib/storage";
+import { saveUpload, UploadValidationError } from "@/lib/storage";
 
+// Appends one summary document (local-disk fallback path, used when
+// neither Drive nor Blob is available) — a session can have several.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; sessionId: string }> }
@@ -20,12 +22,11 @@ export async function POST(
 
   try {
     const { url, fileName } = await saveUpload(file, "pdf", `clients/${clientId}`);
-    await deleteUploadByUrl(existing.summaryFileUrl);
-    const session = await prisma.lessonSession.update({
-      where: { id: sessionId },
-      data: { summaryFileUrl: url, summaryFileName: fileName },
+    const last = await prisma.sessionSummaryFile.findFirst({ where: { sessionId }, orderBy: { order: "desc" } });
+    const summaryFile = await prisma.sessionSummaryFile.create({
+      data: { sessionId, url, fileName, order: (last?.order ?? -1) + 1 },
     });
-    return NextResponse.json({ session });
+    return NextResponse.json({ file: summaryFile });
   } catch (e) {
     if (e instanceof UploadValidationError) {
       return NextResponse.json({ error: e.message }, { status: 400 });
