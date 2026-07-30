@@ -14,7 +14,6 @@ type SessionData = {
   id: string;
   number: number;
   title: string;
-  date: string;
   mediaType: string | null;
   fileUrl: string | null;
   completed: boolean;
@@ -37,7 +36,6 @@ export function SessionDetailView({
   const [tipVisible, setTipVisible] = useState(!!showCompleteTip);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const date = new Date(session.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
   const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
 
   async function toggleComplete() {
@@ -98,7 +96,6 @@ export function SessionDetailView({
         ))}
 
       <div className="font-heading font-bold text-[19px] text-ink mt-4">{session.title}</div>
-      <div className="text-[13px] text-muted mt-0.5">{date}</div>
 
       {tipVisible && (
         <div className="mt-3 bg-brand-soft-2 border border-brand-soft rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 animate-fade-up">

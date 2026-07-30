@@ -2,10 +2,6 @@ import Link from "next/link";
 import { getClientId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-function formatDate(d: Date) {
-  return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
-}
-
 export default async function RecordingsPage() {
   const clientId = (await getClientId())!;
   const sessions = await prisma.lessonSession.findMany({
@@ -34,7 +30,6 @@ export default async function RecordingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-ink truncate">{s.title}</div>
-              <div className="text-xs text-muted mt-0.5">{formatDate(s.createdAt)}</div>
             </div>
             <div
               className="text-[11px] font-semibold shrink-0"

@@ -23,7 +23,6 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         id: session.id,
         number: session.number,
         title: session.title,
-        date: session.createdAt.toISOString(),
         mediaType: session.mediaType,
         fileUrl: session.fileUrl,
         completed: session.completed,
