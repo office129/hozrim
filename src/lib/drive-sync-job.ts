@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail, isEmailConfigured } from "@/lib/email";
-import { getConnection, listFolderFiles } from "@/lib/google-drive-oauth";
+import { getConnection, listFolderFiles, listSubfolders } from "@/lib/google-drive-oauth";
 import { extractEventName, importMeetRecordingForClient } from "@/lib/meet-import";
 import {
   reconcileSessionFolder,
@@ -20,14 +20,14 @@ import {
 //    coach's connected Drive account by whoever actually organizes the
 //    calls, and file each one straight into the matching client's session
 //    — without the coach lifting a finger, as long as the Meet invite was
-//    named after the client. Matching is a plain substring check: the
-//    meeting's name (Google appends a " (date time)" suffix to every
-//    recording's filename, stripped off in extractEventName) has to
-//    contain exactly one client's name. Zero or multiple matches go to
-//    the admin review queue instead of guessing. A copy, not a move —
-//    Drive doesn't support genuinely moving a file between two different
-//    people's accounts — so the original stays in the shared folder
-//    untouched.
+//    named after the client. Matching is a plain substring check against
+//    the meeting's name - see findMeetRecordingFiles for exactly where
+//    that name comes from, since Google restructured this in July 2026
+//    (one subfolder per meeting instead of flat files). Zero or multiple
+//    matches go to the admin review queue instead of guessing. A copy,
+//    not a move — Drive doesn't support genuinely moving a file between
+//    two different people's accounts — so the original stays in the
+//    shared folder untouched.
 //
 // 2. Reconcile every EXISTING session and library item's own Drive
 //    folder against what the app has on record — a file dropped in by
@@ -52,8 +52,34 @@ async function notifyAdmins(subject: string, text: string) {
   }
 }
 
+// Since Google's July 2026 change, Meet no longer drops recording files
+// directly into the configured folder - it creates one subfolder per
+// meeting inside it (recurring meetings share a single subfolder across
+// every instance), alongside notes/transcript docs for the same meeting.
+// Recordings can still show up flat too (either from before the change,
+// or if Google hasn't rolled it out for this account yet), so both
+// layouts are scanned: the folder's own files, plus one level into each
+// of its subfolders. Only actual video files are treated as recordings -
+// the notes/transcript docs living alongside them are ignored entirely.
+async function findMeetRecordingFiles(
+  meetRecordingsFolderId: string
+): Promise<{ id: string; name: string; createdTime: string; mimeType: string; eventName: string }[]> {
+  const topLevel = await listFolderFiles(meetRecordingsFolderId);
+  const subfolders = await listSubfolders(meetRecordingsFolderId);
+
+  const nested: { id: string; name: string; createdTime: string; mimeType: string; eventName: string }[] = [];
+  for (const folder of subfolders) {
+    const filesInFolder = await listFolderFiles(folder.id);
+    for (const f of filesInFolder) nested.push({ ...f, eventName: extractEventName(folder.name) });
+  }
+
+  return [...topLevel.map((f) => ({ ...f, eventName: extractEventName(f.name) })), ...nested].filter((f) =>
+    f.mimeType.startsWith("video/")
+  );
+}
+
 async function runMeetImport(meetRecordingsFolderId: string) {
-  const files = await listFolderFiles(meetRecordingsFolderId);
+  const files = await findMeetRecordingFiles(meetRecordingsFolderId);
   if (!files.length) return { scanned: 0, new: 0, matched: 0, ambiguous: 0, unmatched: 0, noFolder: 0 };
 
   const alreadyProcessed = await prisma.meetRecordingImport.findMany({
@@ -70,7 +96,7 @@ async function runMeetImport(meetRecordingsFolderId: string) {
     });
 
     for (const file of newFiles) {
-      const eventName = extractEventName(file.name);
+      const eventName = file.eventName;
       const recordingDate = new Date(file.createdTime);
       const matches = clients.filter((c) => eventName.includes(c.name));
 

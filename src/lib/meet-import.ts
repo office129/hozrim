@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { copyDriveFile, findOrCreateMeetingsFolder, findOrCreateSessionFolder } from "@/lib/google-drive-oauth";
 
-// Google appends " (date time)" to every Meet recording's filename —
-// stripped off here to get back the actual meeting name the coach named
-// the calendar invite.
-export function extractEventName(fileName: string): string {
-  const withoutExt = fileName.replace(/\.[^.]+$/, "");
+// Google appends " (date time)" to a Meet recording's filename (older,
+// flat layout) or leaves it off a per-meeting subfolder's own name
+// (current layout, since a recurring meeting's subfolder covers every
+// instance) - stripped off here, when present, to get back the actual
+// meeting name the coach named the calendar invite. A no-op when there's
+// no such suffix, so it's safe to call on either kind of name.
+export function extractEventName(name: string): string {
+  const withoutExt = name.replace(/\.[^.]+$/, "");
   const parenIndex = withoutExt.lastIndexOf(" (");
   return (parenIndex > 0 ? withoutExt.slice(0, parenIndex) : withoutExt).trim();
 }
