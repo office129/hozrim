@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { driveFolderId } from "@/lib/external-links";
-import { findOrCreateExercisesFolder, findOrCreateMeetingsFolder } from "@/lib/google-drive-oauth";
+import { findOrCreateExercisesFolder, findOrCreateMeetingsFolder, trashDriveFile } from "@/lib/google-drive-oauth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
@@ -121,6 +121,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   for (const e of client.exercises) {
     await deleteUploadByUrl(e.audioFileUrl);
     await deleteUploadByUrl(e.pdfFileUrl);
+  }
+  // The loop above trashes individually-known files one at a time, but the
+  // client's whole Drive folder (every session/exercise folder and
+  // anything dropped into them by hand) would otherwise stay behind as
+  // orphaned clutter — trashing the top folder takes everything inside it
+  // with it in one step.
+  if (client.driveFolderId) {
+    try {
+      await trashDriveFile(client.driveFolderId);
+    } catch (e) {
+      console.error("Failed to trash client's Drive folder", e);
+    }
   }
 
   await prisma.client.delete({ where: { id } });

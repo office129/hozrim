@@ -26,6 +26,9 @@ export function GoogleDriveConnectionCard() {
   const [meetFolderUrl, setMeetFolderUrl] = useState("");
   const [savingMeetFolder, setSavingMeetFolder] = useState(false);
   const [meetFolderError, setMeetFolderError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState("");
+  const [syncError, setSyncError] = useState("");
 
   useEffect(() => {
     apiGet("/api/admin/drive-oauth/status")
@@ -71,6 +74,43 @@ export function GoogleDriveConnectionCard() {
     }
   }
 
+  async function runSyncNow() {
+    setSyncing(true);
+    setSyncError("");
+    setSyncResult("");
+    try {
+      const result = (await apiSend("/api/admin/drive-sync/run", "POST")) as {
+        ok: boolean;
+        skipped?: string;
+        meetImport?: { skipped?: string; new?: number; matched?: number; ambiguous?: number; unmatched?: number; noFolder?: number };
+        folderSync?: {
+          sessionErrors: number;
+          libraryErrors: number;
+          newSessionFolders: number;
+          newLibraryFolders: number;
+        };
+      };
+
+      if (result.skipped) {
+        setSyncResult(result.skipped);
+        return;
+      }
+
+      const parts: string[] = [];
+      if (result.meetImport?.matched) parts.push(`${result.meetImport.matched} הקלטות Meet יובאו`);
+      if (result.folderSync?.newSessionFolders) parts.push(`${result.folderSync.newSessionFolders} תיקיות פגישה חדשות נוספו`);
+      if (result.folderSync?.newLibraryFolders) parts.push(`${result.folderSync.newLibraryFolders} תיקיות ספריית תכנים חדשות נוספו`);
+      const errors = (result.folderSync?.sessionErrors || 0) + (result.folderSync?.libraryErrors || 0);
+      setSyncResult(parts.length ? parts.join(", ") : "הסנכרון הושלם, לא נמצאו שינויים חדשים");
+      if (errors) setSyncError(`שימו לב: ${errors} פריטים נכשלו בסנכרון`);
+      router.refresh();
+    } catch (err) {
+      setSyncError(err instanceof ApiError ? err.message : "הסנכרון נכשל");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (!status) return null;
 
   return (
@@ -108,7 +148,22 @@ export function GoogleDriveConnectionCard() {
 
       {status.connected && (
         <div className="pt-3 border-t border-border">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-[13px] text-muted">סנכרון עם דרייב:</span>
+            <button
+              onClick={runSyncNow}
+              disabled={syncing}
+              className="text-[12.5px] font-semibold text-brand border border-brand px-3 py-1 rounded-lg cursor-pointer disabled:opacity-50"
+            >
+              {syncing ? "בודק/ת…" : "בדוק עכשיו"}
+            </button>
+          </div>
+          {syncResult && <div className="text-[12.5px] text-ink mt-1.5">{syncResult}</div>}
+          {syncError && <div className="text-danger text-xs mt-1.5">{syncError}</div>}
+          <div className="text-[11.5px] text-muted mt-1.5 mb-2">
+            מריץ מיד את אותו סנכרון שרץ אוטומטית פעם ביום: ייבוא הקלטות Meet חדשות, עדכון קבצים שנוספו/נמחקו בדרייב, ויצירת שיעורים/פריטי ספרייה לתיקיות שנוספו ידנית.
+          </div>
+          <div className="flex items-center gap-2.5 pt-2 border-t border-border">
             <span className="text-[13px] text-muted">תיקיית הקלטות Meet:</span>
             {status.meetRecordingsFolderId && !editingMeetFolder && (
               <>

@@ -148,6 +148,17 @@ export async function listFolderFiles(
   return res.files;
 }
 
+// Lists the subfolders directly inside a folder — used to notice a
+// session/library-item folder the coach created by hand directly in
+// Drive, with no matching row in the app yet.
+export async function listSubfolders(folderId: string): Promise<{ id: string; name: string }[]> {
+  const q = `'${folderId}' in parents and trashed=false and mimeType = 'application/vnd.google-apps.folder'`;
+  const res = (await driveApiFetch(`/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`)) as {
+    files: { id: string; name: string }[];
+  };
+  return res.files;
+}
+
 // Copies a file into another folder — used to bring a Meet recording
 // (which lives in a folder shared with, but not owned by, this account)
 // into the matched client's own session folder without needing to move

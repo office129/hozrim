@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { driveFileId } from "@/lib/external-links";
 import {
   listFolderFiles,
+  listSubfolders,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   getOrCreateLibraryFolder,
@@ -167,4 +168,73 @@ export async function reconcileLibraryItemFolder(item: {
   if (Object.keys(data).length || Object.keys(updates).length) {
     await prisma.libraryItem.update({ where: { id: item.id }, data: { ...data, ...updates } });
   }
+}
+
+// Notices a session folder the coach created by hand directly inside
+// "פגישות והקלטות", with no matching session in the app yet — creates one
+// (named after the folder, same one-to-one naming as everywhere else) and
+// immediately reconciles it so any file already sitting inside shows up
+// right away rather than waiting for the next run.
+//
+// Must run after existing sessions have already been reconciled at least
+// once (reconcileSessionFolder backfills driveFolderId by name for older
+// sessions) — otherwise a not-yet-backfilled existing session's folder
+// would look "new" here and get a duplicate session created for it.
+export async function discoverNewSessionFolders(client: {
+  id: string;
+  driveFolderId: string | null;
+  driveMeetingsFolderId: string | null;
+}): Promise<number> {
+  if (!client.driveFolderId) return 0;
+
+  let meetingsFolderId = client.driveMeetingsFolderId;
+  if (!meetingsFolderId) {
+    meetingsFolderId = await findOrCreateMeetingsFolder(client.driveFolderId);
+    await prisma.client.update({ where: { id: client.id }, data: { driveMeetingsFolderId: meetingsFolderId } });
+  }
+
+  const subfolders = await listSubfolders(meetingsFolderId);
+  const known = await prisma.lessonSession.findMany({
+    where: { clientId: client.id },
+    select: { driveFolderId: true },
+  });
+  const knownIds = new Set(known.map((s) => s.driveFolderId).filter((x): x is string => !!x));
+  const newFolders = subfolders.filter((f) => !knownIds.has(f.id));
+
+  for (const folder of newFolders) {
+    const count = await prisma.lessonSession.count({ where: { clientId: client.id } });
+    const session = await prisma.lessonSession.create({
+      data: { clientId: client.id, number: count + 1, title: folder.name, driveFolderId: folder.id },
+    });
+    await reconcileSessionFolder(
+      { id: session.id, clientId: client.id, title: session.title, fileUrl: null, driveFolderId: folder.id, summaryFiles: [] },
+      client
+    );
+  }
+  return newFolders.length;
+}
+
+// Same idea as discoverNewSessionFolders, for "ספריית תכנים".
+export async function discoverNewLibraryItemFolders(): Promise<number> {
+  const libraryFolderId = await getOrCreateLibraryFolder();
+  const subfolders = await listSubfolders(libraryFolderId);
+  const known = await prisma.libraryItem.findMany({ select: { driveFolderId: true } });
+  const knownIds = new Set(known.map((i) => i.driveFolderId).filter((x): x is string => !!x));
+  const newFolders = subfolders.filter((f) => !knownIds.has(f.id));
+
+  for (const folder of newFolders) {
+    const count = await prisma.libraryItem.count();
+    const item = await prisma.libraryItem.create({
+      data: { title: folder.name, number: count + 1, driveFolderId: folder.id },
+    });
+    await reconcileLibraryItemFolder({
+      id: item.id,
+      title: item.title,
+      videoFileUrl: null,
+      audioFileUrl: null,
+      fileUrl: null,
+      driveFolderId: folder.id,
+    });
+  }
+  return newFolders.length;
 }
