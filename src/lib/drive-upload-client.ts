@@ -53,16 +53,10 @@ async function relayChunk(
   return { done: data.done, fileId: data.file?.id };
 }
 
-// Uploads a file into the given client's linked Drive folder, using the
-// coach's own storage instead of Vercel Blob. Returns null when Drive isn't
-// connected or the client has no folder linked yet, so the caller can fall
-// back to the existing Blob/local path.
-export async function tryUploadFileToDrive(
+async function uploadViaInit(
   file: File,
-  clientId: string,
-  folder: "main" | "exercises",
-  onProgress?: (percentage: number) => void,
-  sessionId?: string
+  initBody: Record<string, unknown>,
+  onProgress?: (percentage: number) => void
 ): Promise<{ url: string; fileName: string } | null> {
   if (!(await isDriveConnected())) return null;
 
@@ -70,14 +64,7 @@ export async function tryUploadFileToDrive(
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      clientId,
-      folder,
-      filename: file.name,
-      mimeType: file.type || "application/octet-stream",
-      fileSize: file.size,
-      sessionId,
-    }),
+    body: JSON.stringify(initBody),
   });
   if (!initRes.ok) return null; // no folder linked (yet), or Drive unreachable
 
@@ -112,4 +99,46 @@ export async function tryUploadFileToDrive(
 
   if (!fileId) throw new Error("העלאה לדרייב לא הושלמה");
   return { url: `https://drive.google.com/file/d/${fileId}/view`, fileName: file.name };
+}
+
+// Uploads a file into the given client's linked Drive folder, using the
+// coach's own storage instead of Vercel Blob. Returns null when Drive isn't
+// connected or the client has no folder linked yet, so the caller can fall
+// back to the existing Blob/local path.
+export async function tryUploadFileToDrive(
+  file: File,
+  clientId: string,
+  folder: "main" | "exercises",
+  onProgress?: (percentage: number) => void,
+  sessionId?: string
+): Promise<{ url: string; fileName: string } | null> {
+  return uploadViaInit(
+    file,
+    {
+      clientId,
+      folder,
+      filename: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+      sessionId,
+    },
+    onProgress
+  );
+}
+
+// Same idea, for a general (not per-client) opening-content library item.
+export async function tryUploadLibraryFileToDrive(
+  file: File,
+  onProgress?: (percentage: number) => void
+): Promise<{ url: string; fileName: string } | null> {
+  return uploadViaInit(
+    file,
+    {
+      folder: "library",
+      filename: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+    },
+    onProgress
+  );
 }

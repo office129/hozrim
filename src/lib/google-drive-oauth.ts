@@ -159,6 +159,22 @@ async function getOrCreateClientsParentFolder(): Promise<string> {
   return cachedParentFolderId;
 }
 
+const LIBRARY_FOLDER_NAME = "ספריית תכנים";
+// Cached per warm serverless instance only, same as the clients parent
+// folder above.
+let cachedLibraryFolderId: string | null = null;
+
+// A general (not per-client) folder for the opening-content library items,
+// living as a sibling of the per-client folders under the same shared
+// parent.
+export async function getOrCreateLibraryFolder(): Promise<string> {
+  if (cachedLibraryFolderId) return cachedLibraryFolderId;
+  const parentId = await getOrCreateClientsParentFolder();
+  const existing = await findSubfolder(parentId, LIBRARY_FOLDER_NAME);
+  cachedLibraryFolderId = existing || (await createFolder(LIBRARY_FOLDER_NAME, parentId));
+  return cachedLibraryFolderId;
+}
+
 async function createFolder(name: string, parentId: string): Promise<string> {
   const created = (await driveApiFetch(`/files?fields=id`, {
     method: "POST",

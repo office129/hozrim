@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { tryUploadFileDirect } from "@/lib/blob-upload-client";
+import { tryUploadLibraryFileToDrive } from "@/lib/drive-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle } from "@/components/icons";
@@ -88,6 +89,12 @@ function LibraryRow({
     const setProgress = slot === "video" ? setVideoProgress : slot === "audio" ? setAudioProgress : null;
     setProgress?.(0);
     try {
+      const toDrive = await tryUploadLibraryFileToDrive(file, setProgress ?? undefined);
+      if (toDrive) {
+        await apiSend(`/api/admin/library/${item.id}`, "PATCH", { slot, url: toDrive.url, name: toDrive.fileName });
+        router.refresh();
+        return;
+      }
       if (slot !== "file") {
         const direct = await tryUploadFileDirect(file, slot, "library", setProgress ?? undefined);
         if (direct) {
@@ -95,12 +102,12 @@ function LibraryRow({
           router.refresh();
           return;
         }
-        if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
-          setError(
-            `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`
-          );
-          return;
-        }
+      }
+      if (file.size > MAX_DIRECT_UPLOAD_BYTES) {
+        setError(
+          `הקובץ גדול מדי להעלאה ישירה (${(file.size / (1024 * 1024)).toFixed(0)}MB) — לקבצים גדולים כאלה יש להשתמש באפשרות "קישור" ולהדביק קישור מגוגל דרייב במקום`
+        );
+        return;
       }
       const form = new FormData();
       form.append("file", file);
