@@ -4,10 +4,10 @@ import { JournalView } from "@/components/client/JournalView";
 
 export default async function JournalPage() {
   const clientId = (await getClientId())!;
-  const entries = await prisma.journalEntry.findMany({
-    where: { clientId },
-    orderBy: { createdAt: "desc" },
-  });
+  const [entries, uploads] = await Promise.all([
+    prisma.journalEntry.findMany({ where: { clientId }, orderBy: { createdAt: "desc" } }),
+    prisma.personalUpload.findMany({ where: { clientId }, orderBy: { createdAt: "desc" } }),
+  ]);
 
   return (
     <div className="p-6 md:p-0 pb-8 animate-fade-up md:max-w-2xl">
@@ -18,6 +18,13 @@ export default async function JournalPage() {
           id: e.id,
           text: e.text,
           date: e.createdAt.toLocaleDateString("he-IL"),
+        }))}
+        uploads={uploads.map((u) => ({
+          id: u.id,
+          url: u.url,
+          fileName: u.fileName,
+          mediaType: u.mediaType,
+          date: u.createdAt.toLocaleDateString("he-IL"),
         }))}
       />
     </div>

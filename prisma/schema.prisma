@@ -33,12 +33,14 @@ model Client {
   sessions               LessonSession[]
   exercises              Exercise[]
   journal                JournalEntry[]
+  personalUploads        PersonalUpload[]
   resetTokens            PasswordResetToken[]
   passkeys               ClientPasskey[]
   notifications          Notification[]
   driveFolderId          String? // the client's top-level Drive folder
   driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
   driveMeetingsFolderId  String? // the "פגישות והקלטות" subfolder inside driveFolderId — each session gets its own "פגישה N" folder inside this one
+  driveUploadsFolderId   String? // the "ההעלאות שלי" subfolder inside driveFolderId — created lazily, only the first time the client uploads something personal (not in driveFolderId at client creation, unlike the other two subfolders)
 }
 
 // A notification shown in the client app's bell icon - either triggered
@@ -192,6 +194,22 @@ model JournalEntry {
   createdAt DateTime @default(now())
 
   @@index([clientId])
+}
+
+// A client's own personal file (video/audio/document) uploaded from the
+// journal tab, for their own use - same privacy as JournalEntry, never
+// exposed to the admin panel. Copied into a "ההעלאות שלי" Drive folder
+// under the client's own driveFolderId when Drive is connected.
+model PersonalUpload {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  url       String
+  fileName  String
+  mediaType String // "video" | "audio" | "document"
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
 }
 
 model PasswordResetToken {

@@ -273,6 +273,7 @@ export async function fetchDriveFile(fileId: string, rangeHeader: string | null)
 
 const EXERCISES_SUBFOLDER_NAME = "תרגולים";
 const MEETINGS_SUBFOLDER_NAME = "פגישות והקלטות";
+const UPLOADS_SUBFOLDER_NAME = "ההעלאות שלי";
 
 // Finds the "תרגולים" subfolder inside an existing client folder (the
 // structure the coach already uses), creating it if it's genuinely
@@ -289,6 +290,16 @@ export async function findOrCreateMeetingsFolder(clientFolderId: string): Promis
   const existing = await findSubfolder(clientFolderId, MEETINGS_SUBFOLDER_NAME);
   if (existing) return existing;
   return createFolder(MEETINGS_SUBFOLDER_NAME, clientFolderId);
+}
+
+// Same idea, for "ההעלאות שלי" — unlike the other two subfolders, this one
+// is never created eagerly when the client's Drive folder is first linked;
+// it only comes into existence the first time the client actually uploads
+// something personal of their own.
+export async function findOrCreateUploadsFolder(clientFolderId: string): Promise<string> {
+  const existing = await findSubfolder(clientFolderId, UPLOADS_SUBFOLDER_NAME);
+  if (existing) return existing;
+  return createFolder(UPLOADS_SUBFOLDER_NAME, clientFolderId);
 }
 
 // Each session gets its own folder inside "פגישות והקלטות", named
