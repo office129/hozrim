@@ -69,24 +69,14 @@ export function NotificationBell({
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
+        {/* First-time nudge: just a quiet dot, not an explanation - the
+            point is for the client to notice and click out of curiosity,
+            not be told in advance what's there. Skipped once there's a
+            real unread badge already drawing the eye. */}
+        {showFirstTimeTip && unreadCount === 0 && (
+          <span className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-gold animate-pulse" />
+        )}
       </button>
-
-      {showFirstTimeTip && !open && (
-        <div className="absolute top-[calc(100%+10px)] left-0 z-20 w-[200px] animate-fade-up">
-          <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
-          <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
-            <div className="text-[13px] text-ink leading-relaxed">
-              כאן תופיע התראה בכל פעם שמפגש או תרגול חדש מתווסף לך.
-            </div>
-            <button
-              onClick={onDismissFirstTimeTip}
-              className="mt-2 text-[12.5px] font-semibold text-brand cursor-pointer"
-            >
-              הבנתי
-            </button>
-          </div>
-        </div>
-      )}
 
       {open && (
         <div className="absolute top-[calc(100%+10px)] left-0 z-30 w-[280px] animate-fade-up">
