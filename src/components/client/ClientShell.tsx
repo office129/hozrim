@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
 import { useAppViewportHeight } from "@/lib/useAppViewportHeight";
 import { NotificationBell } from "./NotificationBell";
+import { WelcomePopup } from "./WelcomePopup";
 
 const NAV = [
   { href: "/app/home", label: "בית" },
@@ -20,17 +21,25 @@ export function ClientShell({
   clientName,
   avatarUrl,
   showProfileTip,
+  showWelcomePopup,
+  showBellTip,
   children,
 }: {
   clientName: string;
   avatarUrl?: string | null;
   showProfileTip?: boolean;
+  showWelcomePopup?: boolean;
+  showBellTip?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const isProfile = pathname === "/app/profile";
   const [tipVisible, setTipVisible] = useState(!!showProfileTip);
+  const [welcomeVisible, setWelcomeVisible] = useState(!!showWelcomePopup);
+  // If the welcome popup is about to show, its own confirmation chains
+  // straight into the bell tip - don't show both at once.
+  const [bellTipVisible, setBellTipVisible] = useState(!showWelcomePopup && !!showBellTip);
   useAppViewportHeight();
 
   async function logout() {
@@ -42,6 +51,17 @@ export function ClientShell({
   function dismissTip() {
     setTipVisible(false);
     apiSend("/api/client/me", "PATCH", { profileTipSeen: true });
+  }
+
+  function confirmWelcome() {
+    setWelcomeVisible(false);
+    apiSend("/api/client/me", "PATCH", { welcomePopupSeen: true });
+    if (showBellTip) setBellTipVisible(true);
+  }
+
+  function dismissBellTip() {
+    setBellTipVisible(false);
+    apiSend("/api/client/me", "PATCH", { bellTipSeen: true });
   }
 
   const items = NAV.map((item) => ({
@@ -112,7 +132,7 @@ export function ClientShell({
                   <div className="font-heading font-bold text-xl text-on-brand mt-0.5">המסע שלך</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <NotificationBell />
+                  <NotificationBell showFirstTimeTip={bellTipVisible} onDismissFirstTimeTip={dismissBellTip} />
                   <div className="relative shrink-0">
                     <Link
                       href="/app/profile"
@@ -176,6 +196,8 @@ export function ClientShell({
           )}
         </div>
       </div>
+
+      {welcomeVisible && <WelcomePopup clientName={clientName} onConfirm={confirmWelcome} />}
     </div>
   );
 }

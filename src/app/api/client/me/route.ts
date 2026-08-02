@@ -26,10 +26,14 @@ export async function PATCH(req: NextRequest) {
     avatarUrl?: string;
     hasSeenProfileTip?: boolean;
     hasSeenSessionCompleteTip?: boolean;
+    hasSeenWelcomePopup?: boolean;
+    hasSeenBellTip?: boolean;
   } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (body?.profileTipSeen === true) data.hasSeenProfileTip = true;
   if (body?.sessionCompleteTipSeen === true) data.hasSeenSessionCompleteTip = true;
+  if (body?.welcomePopupSeen === true) data.hasSeenWelcomePopup = true;
+  if (body?.bellTipSeen === true) data.hasSeenBellTip = true;
   if (typeof body?.newPassword === "string" && body.newPassword.length > 0) {
     if (body.newPassword.length < 6) {
       return NextResponse.json({ error: "הסיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });

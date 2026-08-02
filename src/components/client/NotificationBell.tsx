@@ -13,7 +13,13 @@ type Notification = {
   createdAt: string;
 };
 
-export function NotificationBell() {
+export function NotificationBell({
+  showFirstTimeTip,
+  onDismissFirstTimeTip,
+}: {
+  showFirstTimeTip?: boolean;
+  onDismissFirstTimeTip?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -40,6 +46,7 @@ export function NotificationBell() {
   function toggleOpen() {
     const next = !open;
     setOpen(next);
+    if (next && showFirstTimeTip) onDismissFirstTimeTip?.();
     if (next && unreadCount > 0) {
       setUnreadCount(0);
       apiSend("/api/client/notifications/read", "POST").catch(() => {});
@@ -63,6 +70,23 @@ export function NotificationBell() {
           </span>
         )}
       </button>
+
+      {showFirstTimeTip && !open && (
+        <div className="absolute top-[calc(100%+10px)] left-0 z-20 w-[200px] animate-fade-up">
+          <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
+          <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
+            <div className="text-[13px] text-ink leading-relaxed">
+              כאן תופיע התראה בכל פעם שמפגש או תרגול חדש מתווסף לך.
+            </div>
+            <button
+              onClick={onDismissFirstTimeTip}
+              className="mt-2 text-[12.5px] font-semibold text-brand cursor-pointer"
+            >
+              הבנתי
+            </button>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="absolute top-[calc(100%+10px)] left-0 z-30 w-[280px] animate-fade-up">

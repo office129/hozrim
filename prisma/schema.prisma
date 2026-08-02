@@ -27,6 +27,8 @@ model Client {
   avatarUrl                 String?
   hasSeenProfileTip         Boolean  @default(false)
   hasSeenSessionCompleteTip Boolean  @default(false)
+  hasSeenWelcomePopup       Boolean  @default(false)
+  hasSeenBellTip            Boolean  @default(false)
   totalSessions             Int      @default(6)
   createdAt                 DateTime @default(now())
 

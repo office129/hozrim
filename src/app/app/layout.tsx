@@ -16,7 +16,13 @@ export default async function ClientAppLayout({ children }: { children: React.Re
   if (!client) redirect("/login");
 
   return (
-    <ClientShell clientName={client.name} avatarUrl={client.avatarUrl} showProfileTip={!client.hasSeenProfileTip}>
+    <ClientShell
+      clientName={client.name}
+      avatarUrl={client.avatarUrl}
+      showProfileTip={!client.hasSeenProfileTip}
+      showWelcomePopup={!client.hasSeenWelcomePopup}
+      showBellTip={!client.hasSeenBellTip}
+    >
       {children}
     </ClientShell>
   );
