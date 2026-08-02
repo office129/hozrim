@@ -21,7 +21,6 @@ export default async function ClientAppLayout({ children }: { children: React.Re
       avatarUrl={client.avatarUrl}
       showProfileTip={!client.hasSeenProfileTip}
       showWelcomePopup={!client.hasSeenWelcomePopup}
-      showBellTip={!client.hasSeenBellTip}
     >
       {children}
     </ClientShell>

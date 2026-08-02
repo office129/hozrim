@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 // client app, differentiated by `type` only for icon/styling purposes.
 export async function notifyClient(
   clientId: string,
-  data: { type: "session" | "exercise"; title: string; link?: string }
+  data: { type: "session" | "exercise" | "welcome"; title: string; link?: string }
 ): Promise<void> {
   await prisma.notification.create({
     data: { clientId, type: data.type, title: data.title, link: data.link },

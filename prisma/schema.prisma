@@ -20,17 +20,17 @@ model Admin {
 }
 
 model Client {
-  id                        String   @id @default(cuid())
-  email                     String   @unique
-  passwordHash              String
-  name                      String
-  avatarUrl                 String?
-  hasSeenProfileTip         Boolean  @default(false)
-  hasSeenSessionCompleteTip Boolean  @default(false)
-  hasSeenWelcomePopup       Boolean  @default(false)
-  hasSeenBellTip            Boolean  @default(false)
-  totalSessions             Int      @default(6)
-  createdAt                 DateTime @default(now())
+  id                           String   @id @default(cuid())
+  email                        String   @unique
+  passwordHash                 String
+  name                         String
+  avatarUrl                    String?
+  hasSeenProfileTip            Boolean  @default(false)
+  hasSeenSessionCompleteTip    Boolean  @default(false)
+  hasSeenWelcomePopup          Boolean  @default(false)
+  hasSeededWelcomeNotification Boolean  @default(false)
+  totalSessions                Int      @default(6)
+  createdAt                    DateTime @default(now())
 
   sessions               LessonSession[]
   exercises              Exercise[]
@@ -54,7 +54,7 @@ model Notification {
   id        String    @id @default(cuid())
   clientId  String
   client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  type      String // "session" | "exercise" | "broadcast"
+  type      String // "session" | "exercise" | "broadcast" | "welcome"
   title     String
   link      String? // in-app path to navigate to when clicked, e.g. "/app/recordings/<id>"
   readAt    DateTime?
@@ -113,11 +113,11 @@ model ClientPasskey {
 // A single meeting/lesson in a client's personal process — the
 // "פגישות והקלטות" tab in admin and "הקלטות" in the client app.
 model LessonSession {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  number    Int
-  title     String
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  number   Int
+  title    String
 
   mediaType     String? // "video" | "audio" — which upload slot is active
   fileUrl       String?
@@ -152,9 +152,9 @@ model SessionSummaryFile {
 
 // Per-client practice/exercise items — the "תרגולים" tab.
 model Exercise {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   clientId String
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   number   Int
   title    String
   subtitle String?
@@ -189,10 +189,10 @@ model LibraryItem {
 
 // Fully private per-client journal — never exposed to the admin panel.
 model JournalEntry {
-  id       String   @id @default(cuid())
-  clientId String
-  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  text     String
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  text      String
   createdAt DateTime @default(now())
 
   @@index([clientId])
@@ -229,13 +229,13 @@ model PersonalUpload {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([clientId])
 }

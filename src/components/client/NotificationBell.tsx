@@ -13,18 +13,16 @@ type Notification = {
   createdAt: string;
 };
 
-export function NotificationBell({
-  showFirstTimeTip,
-  onDismissFirstTimeTip,
-}: {
-  showFirstTimeTip?: boolean;
-  onDismissFirstTimeTip?: () => void;
-}) {
+export function NotificationBell({ refetchSignal }: { refetchSignal?: unknown } = {}) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Re-fetches whenever refetchSignal changes - used right after
+  // confirming the welcome popup, which seeds a real notification
+  // server-side after this component has already done its initial fetch
+  // on mount.
   useEffect(() => {
     apiGet("/api/client/notifications")
       .then((data) => {
@@ -32,7 +30,8 @@ export function NotificationBell({
         setUnreadCount(data.unreadCount || 0);
       })
       .catch(() => {});
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetchSignal]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +45,6 @@ export function NotificationBell({
   function toggleOpen() {
     const next = !open;
     setOpen(next);
-    if (next && showFirstTimeTip) onDismissFirstTimeTip?.();
     if (next && unreadCount > 0) {
       setUnreadCount(0);
       apiSend("/api/client/notifications/read", "POST").catch(() => {});
@@ -68,13 +66,6 @@ export function NotificationBell({
           <span className="absolute -top-0.5 -left-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10.5px] font-bold flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
-        )}
-        {/* First-time nudge: just a quiet dot, not an explanation - the
-            point is for the client to notice and click out of curiosity,
-            not be told in advance what's there. Skipped once there's a
-            real unread badge already drawing the eye. */}
-        {showFirstTimeTip && unreadCount === 0 && (
-          <span className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-gold animate-pulse" />
         )}
       </button>
 

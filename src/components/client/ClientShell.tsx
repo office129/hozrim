@@ -22,14 +22,12 @@ export function ClientShell({
   avatarUrl,
   showProfileTip,
   showWelcomePopup,
-  showBellTip,
   children,
 }: {
   clientName: string;
   avatarUrl?: string | null;
   showProfileTip?: boolean;
   showWelcomePopup?: boolean;
-  showBellTip?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -37,9 +35,10 @@ export function ClientShell({
   const isProfile = pathname === "/app/profile";
   const [tipVisible, setTipVisible] = useState(!!showProfileTip);
   const [welcomeVisible, setWelcomeVisible] = useState(!!showWelcomePopup);
-  // If the welcome popup is about to show, its own confirmation chains
-  // straight into the bell tip - don't show both at once.
-  const [bellTipVisible, setBellTipVisible] = useState(!showWelcomePopup && !!showBellTip);
+  // Bumped after confirming the welcome popup, which seeds a real
+  // notification server-side - tells the bell (already mounted, already
+  // done its initial fetch) to fetch again and pick it up.
+  const [notifRefreshKey, setNotifRefreshKey] = useState(0);
   useAppViewportHeight();
 
   async function logout() {
@@ -53,15 +52,10 @@ export function ClientShell({
     apiSend("/api/client/me", "PATCH", { profileTipSeen: true });
   }
 
-  function confirmWelcome() {
+  async function confirmWelcome() {
     setWelcomeVisible(false);
-    apiSend("/api/client/me", "PATCH", { welcomePopupSeen: true });
-    if (showBellTip) setBellTipVisible(true);
-  }
-
-  function dismissBellTip() {
-    setBellTipVisible(false);
-    apiSend("/api/client/me", "PATCH", { bellTipSeen: true });
+    await apiSend("/api/client/me", "PATCH", { welcomePopupSeen: true });
+    setNotifRefreshKey((k) => k + 1);
   }
 
   const items = NAV.map((item) => ({
@@ -132,7 +126,7 @@ export function ClientShell({
                   <div className="font-heading font-bold text-xl text-on-brand mt-0.5">המסע שלך</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <NotificationBell showFirstTimeTip={bellTipVisible} onDismissFirstTimeTip={dismissBellTip} />
+                  <NotificationBell refetchSignal={notifRefreshKey} />
                   <div className="relative shrink-0">
                     <Link
                       href="/app/profile"

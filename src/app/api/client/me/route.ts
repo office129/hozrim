@@ -4,6 +4,7 @@ import { requireClient, isResponse } from "@/lib/guard";
 import { hashPassword } from "@/lib/auth";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
+import { notifyClient } from "@/lib/notifications";
 
 export async function GET() {
   const clientId = await requireClient();
@@ -27,13 +28,26 @@ export async function PATCH(req: NextRequest) {
     hasSeenProfileTip?: boolean;
     hasSeenSessionCompleteTip?: boolean;
     hasSeenWelcomePopup?: boolean;
-    hasSeenBellTip?: boolean;
+    hasSeededWelcomeNotification?: boolean;
   } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (body?.profileTipSeen === true) data.hasSeenProfileTip = true;
   if (body?.sessionCompleteTipSeen === true) data.hasSeenSessionCompleteTip = true;
-  if (body?.welcomePopupSeen === true) data.hasSeenWelcomePopup = true;
-  if (body?.bellTipSeen === true) data.hasSeenBellTip = true;
+
+  // Confirming the welcome popup also drops a real notification into the
+  // bell - the client discovers it themselves the normal way (the same
+  // red unread badge as any other notification), not a separate one-off
+  // tooltip explaining what the bell does before they've even used it.
+  let seedWelcomeNotification = false;
+  if (body?.welcomePopupSeen === true) {
+    data.hasSeenWelcomePopup = true;
+    const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { hasSeededWelcomeNotification: true } });
+    if (existing && !existing.hasSeededWelcomeNotification) {
+      seedWelcomeNotification = true;
+      data.hasSeededWelcomeNotification = true;
+    }
+  }
+
   if (typeof body?.newPassword === "string" && body.newPassword.length > 0) {
     if (body.newPassword.length < 6) {
       return NextResponse.json({ error: "הסיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });
@@ -53,5 +67,8 @@ export async function PATCH(req: NextRequest) {
 
   const client = await prisma.client.update({ where: { id: clientId }, data });
   if (data.avatarUrl && previousAvatarUrl) await deleteUploadByUrl(previousAvatarUrl);
+  if (seedWelcomeNotification) {
+    await notifyClient(clientId, { type: "welcome", title: "כאן תופיע התראה בכל פעם שמפגש או תרגול חדש מתווסף לך" });
+  }
   return NextResponse.json({ client: { name: client.name, email: client.email, avatarUrl: client.avatarUrl } });
 }
