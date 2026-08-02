@@ -62,10 +62,11 @@ export async function POST(req: NextRequest) {
 
   let emailSent = false;
   try {
+    const loginUrl = `${req.nextUrl.origin}/login`;
     await sendMail(
       email,
       "חוזרים לבראשית — פרטי הכניסה שלך",
-      `שלום ${name},\n\nחשבונך במרחב הליווי האישי נוצר.\n\nכתובת אימייל להתחברות: ${email}\nסיסמה זמנית: ${tempPassword}\n\nמומלץ להחליף את הסיסמה מהאזור האישי לאחר הכניסה הראשונה.`
+      `שלום ${name},\n\nברוכים הבאים לאפליקציית הליווי של חוזרים לבראשית.\n\nפרטי ההתחברות שלך:\nקישור לאתר: ${loginUrl}\nמייל המשתמש: ${email}\nסיסמא זמנית: ${tempPassword}\n\n(באיזור האישי כדאי להחליף סיסמא)\n\nניפגש בפנים,\nיוסף חיים שטיינר`
     );
     emailSent = isEmailConfigured();
   } catch (e) {
