@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
 import { Textarea } from "@/components/ui/Field";
@@ -20,6 +20,19 @@ export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: U
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // A large personal file can take a while to upload (see uploadFile) -
+  // warn before an accidental refresh/close throws away the progress,
+  // the same protection browsers show for an unsaved form.
+  useEffect(() => {
+    if (!uploading) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [uploading]);
 
   async function add() {
     const text = draft.trim();
@@ -151,6 +164,15 @@ export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: U
           </div>
         )}
       </div>
+
+      {uploading && (
+        <div className="fixed bottom-5 inset-x-0 flex justify-center z-50 pointer-events-none px-4">
+          <div className="bg-ink text-cream text-[12.5px] font-medium rounded-full px-4 py-2 shadow-lg flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gold animate-pulse shrink-0" />
+            מעלה קובץ… {uploadProgress}% — נא לא לסגור או לרענן את הדף
+          </div>
+        </div>
+      )}
     </div>
   );
 }
