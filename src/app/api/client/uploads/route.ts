@@ -3,17 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { requireClient, isResponse } from "@/lib/guard";
 import { saveUpload, UploadValidationError } from "@/lib/storage";
 
-export async function GET() {
-  const clientId = await requireClient();
-  if (isResponse(clientId)) return clientId;
-
-  const uploads = await prisma.personalUpload.findMany({
-    where: { clientId },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json({ uploads });
-}
-
 // Fallback path when Drive isn't connected (or the client has no Drive
 // folder linked) - the client-facing counterpart of the admin session/
 // exercise upload routes, storing to Blob/local instead. The direct-to-
@@ -25,16 +14,20 @@ export async function POST(req: NextRequest) {
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+  const groupId = form?.get("groupId");
+  if (!(file instanceof File) || typeof groupId !== "string" || !groupId) {
+    return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+  }
+
+  const group = await prisma.personalUploadGroup.findFirst({ where: { id: groupId, clientId } });
+  if (!group) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
 
   const mediaType = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "document";
   const kind = mediaType === "document" ? "file" : mediaType;
 
   try {
     const { url, fileName } = await saveUpload(file, kind, `clients/${clientId}`);
-    const upload = await prisma.personalUpload.create({
-      data: { clientId, url, fileName, mediaType },
-    });
+    const upload = await prisma.personalUpload.create({ data: { groupId, url, fileName, mediaType } });
     return NextResponse.json({ upload });
   } catch (e) {
     if (e instanceof UploadValidationError) {
@@ -51,11 +44,15 @@ export async function PATCH(req: NextRequest) {
   if (isResponse(clientId)) return clientId;
 
   const body = await req.json().catch(() => null);
+  const groupId = typeof body?.groupId === "string" ? body.groupId : "";
   const url = typeof body?.url === "string" ? body.url : "";
   const fileName = typeof body?.fileName === "string" ? body.fileName : "";
   const mediaType = body?.mediaType === "video" || body?.mediaType === "audio" ? body.mediaType : "document";
-  if (!url || !fileName) return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+  if (!groupId || !url || !fileName) return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
 
-  const upload = await prisma.personalUpload.create({ data: { clientId, url, fileName, mediaType } });
+  const group = await prisma.personalUploadGroup.findFirst({ where: { id: groupId, clientId } });
+  if (!group) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+  const upload = await prisma.personalUpload.create({ data: { groupId, url, fileName, mediaType } });
   return NextResponse.json({ upload });
 }

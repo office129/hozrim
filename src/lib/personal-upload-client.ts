@@ -46,12 +46,14 @@ async function relayChunk(
   return { done: data.done, fileId: data.file?.id };
 }
 
-// Uploads a personal file straight into the client's own "ההעלאות שלי"
-// Drive folder. Returns null when Drive isn't connected (or the client
-// has no Drive folder yet), so the caller can fall back to the Blob/local
-// path via POST /api/client/uploads.
+// Uploads a personal file straight into the given upload group's own
+// Drive folder (a subfolder of "ההעלאות שלי" named after the group).
+// Returns null when Drive isn't connected (or the client has no Drive
+// folder yet), so the caller can fall back to the Blob/local path via
+// POST /api/client/uploads.
 export async function tryUploadPersonalFileToDrive(
   file: File,
+  groupId: string,
   onProgress?: (percentage: number) => void
 ): Promise<{ url: string; fileName: string } | null> {
   if (!(await isDriveEnabled())) return null;
@@ -61,6 +63,7 @@ export async function tryUploadPersonalFileToDrive(
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      groupId,
       filename: file.name,
       mimeType: file.type || "application/octet-stream",
       fileSize: file.size,

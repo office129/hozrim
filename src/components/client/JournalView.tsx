@@ -3,23 +3,40 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
-import { Textarea } from "@/components/ui/Field";
+import { Textarea, Input } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { ChevronDown, DocIcon } from "@/components/icons";
+import { VideoEmbed, AudioEmbed, DocEmbed } from "@/components/client/MediaEmbed";
 import { tryUploadPersonalFileToDrive } from "@/lib/personal-upload-client";
 
 type Entry = { id: string; text: string; date: string };
-type Upload = { id: string; url: string; fileName: string; mediaType: string; date: string };
+type UploadFile = { id: string; url: string; fileName: string; mediaType: string };
+type Group = { id: string; title: string; files: UploadFile[] };
 
-const MEDIA_LABELS: Record<string, string> = { video: "וידאו", audio: "אודיו", document: "מסמך" };
+// Either uploading the first file of a brand-new named group (the group
+// itself is created right before the upload starts), or adding another
+// file to a group that already exists.
+type PendingUpload = { kind: "new"; title: string } | { kind: "existing"; groupId: string };
 
-export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: Upload[] }) {
+function FileEmbed({ file }: { file: UploadFile }) {
+  if (file.mediaType === "video") return <VideoEmbed url={file.url} className="w-full rounded-[10px]" />;
+  if (file.mediaType === "audio") return <AudioEmbed url={file.url} className="w-full block rounded-[10px]" />;
+  return <DocEmbed url={file.url} className="w-full rounded-[10px]" />;
+}
+
+export function JournalView({ entries, groups }: { entries: Entry[]; groups: Group[] }) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupTitle, setNewGroupTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingUploadRef = useRef<PendingUpload | null>(null);
 
   // A large personal file can take a while to upload (see uploadFile) -
   // warn before an accidental refresh/close throws away the progress,
@@ -52,24 +69,55 @@ export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: U
     router.refresh();
   }
 
-  async function uploadFile(file: File) {
+  function startNewGroupUpload() {
+    const title = newGroupTitle.trim();
+    if (!title) return;
+    pendingUploadRef.current = { kind: "new", title };
+    fileInputRef.current?.click();
+  }
+
+  function startAddToGroupUpload(groupId: string) {
+    pendingUploadRef.current = { kind: "existing", groupId };
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChosen(file: File) {
+    const pending = pendingUploadRef.current;
+    pendingUploadRef.current = null;
+    if (!pending) return;
+
     setUploading(true);
     setUploadProgress(0);
     setUploadError("");
     try {
+      let groupId: string;
+      if (pending.kind === "new") {
+        const { group } = (await apiSend("/api/client/upload-groups", "POST", { title: pending.title })) as {
+          group: { id: string };
+        };
+        groupId = group.id;
+      } else {
+        groupId = pending.groupId;
+      }
+
       const mediaType = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "document";
-      const viaDrive = await tryUploadPersonalFileToDrive(file, setUploadProgress);
+      const viaDrive = await tryUploadPersonalFileToDrive(file, groupId, setUploadProgress);
       if (viaDrive) {
-        await apiSend("/api/client/uploads", "PATCH", { ...viaDrive, mediaType });
+        await apiSend("/api/client/uploads", "PATCH", { ...viaDrive, groupId, mediaType });
       } else {
         const form = new FormData();
         form.append("file", file);
+        form.append("groupId", groupId);
         const res = await fetch("/api/client/uploads", { method: "POST", credentials: "include", body: form });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data?.error || "ההעלאה נכשלה");
         }
       }
+
+      setCreatingGroup(false);
+      setNewGroupTitle("");
+      setExpandedId(groupId);
       router.refresh();
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "ההעלאה נכשלה");
@@ -78,8 +126,14 @@ export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: U
     }
   }
 
-  async function removeUpload(id: string) {
+  async function removeFile(id: string) {
     await apiSend(`/api/client/uploads/${id}`, "DELETE");
+    router.refresh();
+  }
+
+  async function removeGroup(id: string) {
+    await apiSend(`/api/client/upload-groups/${id}`, "DELETE");
+    if (expandedId === id) setExpandedId(null);
     router.refresh();
   }
 
@@ -130,37 +184,97 @@ export function JournalView({ entries, uploads }: { entries: Entry[]; uploads: U
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
-            if (file) uploadFile(file);
+            if (file) handleFileChosen(file);
           }}
         />
-        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-          {uploading ? `מעלה… ${uploadProgress}%` : "העלאת קובץ"}
-        </Button>
+
+        {!creatingGroup ? (
+          <Button variant="outline" onClick={() => setCreatingGroup(true)} disabled={uploading}>
+            העלאת קובץ חדש
+          </Button>
+        ) : (
+          <div className="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2">
+            <div className="text-[12.5px] text-muted">איך לקרוא לזה?</div>
+            <Input
+              autoFocus
+              value={newGroupTitle}
+              onChange={(e) => setNewGroupTitle(e.target.value)}
+              placeholder='למשל: "מסמכי ביטוח"'
+              className="text-[13px]"
+              onKeyDown={(e) => e.key === "Enter" && startNewGroupUpload()}
+            />
+            <div className="flex items-center gap-2">
+              <Button onClick={startNewGroupUpload} disabled={uploading || !newGroupTitle.trim()}>
+                בחירת קובץ
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCreatingGroup(false);
+                  setNewGroupTitle("");
+                }}
+                disabled={uploading}
+              >
+                ביטול
+              </Button>
+            </div>
+          </div>
+        )}
         {uploadError && <div className="text-danger text-xs mt-1.5">{uploadError}</div>}
 
-        {uploads.length > 0 && (
+        {groups.length > 0 && (
           <div className="flex flex-col gap-2.5 mt-3.5">
-            {uploads.map((upload) => (
-              <div key={upload.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] text-ink truncate">{upload.fileName}</div>
-                  <div className="text-[11.5px] text-muted mt-0.5">
-                    {MEDIA_LABELS[upload.mediaType] || upload.mediaType} · {upload.date}
-                  </div>
+            {groups.map((group) => {
+              const open = expandedId === group.id;
+              return (
+                <div key={group.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => setExpandedId(open ? null : group.id)}
+                    className="w-full cursor-pointer flex items-center gap-3.5 px-3.5 py-3 text-right"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-brand-soft shrink-0 flex items-center justify-center">
+                      <DocIcon />
+                    </div>
+                    <div className="flex-1 min-w-0 text-sm font-semibold text-ink truncate">{group.title}</div>
+                    <ChevronDown open={open} />
+                  </button>
+                  {open && (
+                    <div className="px-3.5 pb-3.5 flex flex-col gap-3">
+                      {group.files.map((file) => (
+                        <div key={file.id}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="text-[12.5px] text-muted truncate">{file.fileName}</div>
+                            <button
+                              onClick={() => removeFile(file.id)}
+                              className="text-[11.5px] text-danger cursor-pointer shrink-0"
+                            >
+                              מחיקה
+                            </button>
+                          </div>
+                          <FileEmbed file={file} />
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between pt-1">
+                        <Button
+                          variant="outline"
+                          onClick={() => startAddToGroupUpload(group.id)}
+                          disabled={uploading}
+                          className="text-[12.5px] px-3 py-2"
+                        >
+                          הוספת קובץ נוסף
+                        </Button>
+                        <button
+                          onClick={() => removeGroup(group.id)}
+                          className="text-[12.5px] text-danger cursor-pointer"
+                        >
+                          מחיקת התיקייה כולה
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <a
-                  href={upload.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[12.5px] text-brand underline shrink-0"
-                >
-                  פתיחה
-                </a>
-                <button onClick={() => removeUpload(upload.id)} className="text-xs text-danger cursor-pointer shrink-0">
-                  מחיקה
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

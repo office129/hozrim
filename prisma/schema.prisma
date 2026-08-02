@@ -33,7 +33,7 @@ model Client {
   sessions               LessonSession[]
   exercises              Exercise[]
   journal                JournalEntry[]
-  personalUploads        PersonalUpload[]
+  personalUploadGroups   PersonalUploadGroup[]
   resetTokens            PasswordResetToken[]
   passkeys               ClientPasskey[]
   notifications          Notification[]
@@ -196,20 +196,34 @@ model JournalEntry {
   @@index([clientId])
 }
 
-// A client's own personal file (video/audio/document) uploaded from the
-// journal tab, for their own use - same privacy as JournalEntry, never
-// exposed to the admin panel. Copied into a "ההעלאות שלי" Drive folder
-// under the client's own driveFolderId when Drive is connected.
+// A named group of the client's own personal files, uploaded from the
+// journal tab for their own use - same privacy as JournalEntry, never
+// exposed to the admin panel. Same shape as LessonSession/
+// SessionSummaryFile: one folder per named group inside "ההעלאות שלי"
+// (itself lazily created the first time the client uploads anything),
+// holding one or more files the client considers related.
+model PersonalUploadGroup {
+  id            String           @id @default(cuid())
+  clientId      String
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title         String
+  driveFolderId String? // this group's own Drive folder, cached once created
+  files         PersonalUpload[]
+  createdAt     DateTime         @default(now())
+
+  @@index([clientId, createdAt])
+}
+
 model PersonalUpload {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String              @id @default(cuid())
+  groupId   String
+  group     PersonalUploadGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   url       String
   fileName  String
   mediaType String // "video" | "audio" | "document"
-  createdAt DateTime @default(now())
+  createdAt DateTime            @default(now())
 
-  @@index([clientId, createdAt])
+  @@index([groupId, createdAt])
 }
 
 model PasswordResetToken {

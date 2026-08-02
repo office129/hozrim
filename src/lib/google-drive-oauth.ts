@@ -302,6 +302,15 @@ export async function findOrCreateUploadsFolder(clientFolderId: string): Promise
   return createFolder(UPLOADS_SUBFOLDER_NAME, clientFolderId);
 }
 
+// Same idea as findOrCreateSessionFolder, one folder per named personal-
+// upload group (named after whatever the client typed) inside "ההעלאות
+// שלי" - holding every file the client considers related to that group.
+export async function findOrCreateUploadGroupFolder(uploadsFolderId: string, groupTitle: string): Promise<string> {
+  const existing = await findSubfolder(uploadsFolderId, groupTitle);
+  if (existing) return existing;
+  return createFolder(groupTitle, uploadsFolderId);
+}
+
 // Each session gets its own folder inside "פגישות והקלטות", named
 // exactly after the session's own title (one-to-one, whatever the coach
 // typed when creating it) — holding both the recording and its PDF
