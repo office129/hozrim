@@ -59,7 +59,7 @@ export async function PATCH(
   if (data.fileUrl && !previousFileUrl && session) {
     await notifyClient(clientId, {
       type: "session",
-      title: `הוקלטה חדשה נוספה: ${session.title}`,
+      title: `הקלטה חדשה נוספה: ${session.title}`,
       link: `/app/recordings/${session.id}`,
     });
   }

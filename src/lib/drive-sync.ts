@@ -144,7 +144,7 @@ export async function reconcileSessionFolder(
       hasMain = true;
       await notifyClient(session.clientId, {
         type: "session",
-        title: `הוקלטה חדשה נוספה: ${session.title}`,
+        title: `הקלטה חדשה נוספה: ${session.title}`,
         link: `/app/recordings/${session.id}`,
       });
     }

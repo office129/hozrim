@@ -61,7 +61,7 @@ export async function importMeetRecordingForClient(
 
   await notifyClient(client.id, {
     type: "session",
-    title: `הוקלטה חדשה נוספה: ${sessionTitle}`,
+    title: `הקלטה חדשה נוספה: ${sessionTitle}`,
     link: `/app/recordings/${session.id}`,
   });
 
