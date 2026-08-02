@@ -27,7 +27,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     await sendMail(
       client.email,
       "חוזרים לבראשית — סיסמה זמנית חדשה",
-      `שלום ${client.name},\n\nהונפקה עבורך סיסמה זמנית חדשה למרחב הליווי האישי.\n\nכתובת אימייל להתחברות: ${client.email}\nסיסמה זמנית: ${tempPassword}\n\nמומלץ להחליף את הסיסמה מהאזור האישי לאחר הכניסה.`
+      `שלום ${client.name},\n\nהונפקה עבורך סיסמה זמנית חדשה למרחב הליווי האישי.\n\nכתובת אימייל להתחברות: ${client.email}\nסיסמה זמנית: ${tempPassword}\n\nמומלץ להחליף את הסיסמה מהאיזור האישי לאחר הכניסה.`
     );
     emailSent = isEmailConfigured();
   } catch (e) {

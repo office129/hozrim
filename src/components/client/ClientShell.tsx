@@ -97,7 +97,7 @@ export function ClientShell({
               fontWeight: isProfile ? 600 : 400,
             }}
           >
-            האזור האישי שלי
+            האיזור האישי שלי
           </Link>
         </nav>
         <div className="mt-auto flex flex-col gap-2">
@@ -117,7 +117,7 @@ export function ClientShell({
                 <button onClick={() => router.back()} className="text-on-brand text-sm cursor-pointer">
                   ›
                 </button>
-                <div className="font-heading font-bold text-xl text-on-brand">האזור האישי שלי</div>
+                <div className="font-heading font-bold text-xl text-on-brand">האיזור האישי שלי</div>
               </div>
             ) : (
               <div className="flex items-center justify-between">
@@ -145,7 +145,7 @@ export function ClientShell({
                         <div className="absolute -top-1.5 left-3 w-3 h-3 bg-card rotate-45" />
                         <div className="relative bg-card rounded-2xl shadow-lg p-3.5">
                           <div className="text-[13px] text-ink leading-relaxed">
-                            כאן האזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה, וגם להוסיף כניסה
+                            כאן האיזור האישי שלך! אפשר להחליף כאן תמונה, שם משתמש וסיסמה, וגם להוסיף כניסה
                             בטביעת אצבע — בכל שלב.
                           </div>
                           <button

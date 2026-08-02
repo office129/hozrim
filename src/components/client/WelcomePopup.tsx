@@ -30,7 +30,7 @@ export function WelcomePopup({ clientName, onConfirm }: { clientName: string; on
             בלשונית <b className="text-brand-dark">&quot;יומן אישי&quot;</b> אפשר לכתוב לעצמך מחשבות ורגעים אישיים,
             וגם להעלות קבצים לשימוש אישי בלבד — מרחב פרטי לגמרי, שרק את/ה רואה.
           </div>
-          <div>בפינה למעלה יש סמל של האזור האישי, ולידו פעמון התראות שיעדכן אותך בכל פעם שמשהו חדש עולה.</div>
+          <div>בפינה למעלה יש סמל של האיזור האישי, ולידו פעמון התראות שיעדכן אותך בכל פעם שמשהו חדש עולה.</div>
         </div>
         <Button className="mt-5 w-full" onClick={onConfirm}>
           אישור
