@@ -29,9 +29,17 @@ export async function PATCH(
   let previousFileUrl: string | null = null;
   const needsExisting = typeof body?.fileUrl === "string";
   const existing = needsExisting
-    ? await prisma.lessonSession.findFirst({ where: { id: sessionId, clientId } })
+    ? await prisma.lessonSession.findFirst({
+        where: { id: sessionId, clientId },
+        include: { summaryFiles: true },
+      })
     : null;
   if (needsExisting && !existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+  // Whether this update is the session's first content of any kind - a
+  // session that already has a PDF summary (and already notified for it)
+  // shouldn't notify again just because the recording was added after.
+  const hadNoContentYet = !!existing && !existing.fileUrl && existing.summaryFiles.length === 0;
 
   if (typeof body?.fileUrl === "string") {
     if (!isHttpUrl(body.fileUrl)) {
@@ -54,9 +62,9 @@ export async function PATCH(
     include: { summaryFiles: { orderBy: { order: "asc" } } },
   });
 
-  // Notify only the first time a recording becomes available for this
-  // session, not on every later edit/replacement.
-  if (data.fileUrl && !previousFileUrl && session) {
+  // Notify only the first time this session gets any content at all, not
+  // on every later edit/replacement.
+  if (data.fileUrl && hadNoContentYet && session) {
     await notifyClient(clientId, {
       type: "session",
       title: `הקלטה חדשה נוספה: ${session.title}`,
