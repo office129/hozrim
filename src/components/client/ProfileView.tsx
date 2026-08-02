@@ -7,6 +7,12 @@ import { apiGet, apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { resizeAvatarFile } from "@/lib/resizeImage";
 import { Input, Label, PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import {
+  isPushSupported,
+  getExistingPushSubscription,
+  enablePushNotifications,
+  disablePushNotifications,
+} from "@/lib/push-client";
 
 type Passkey = { id: string; createdAt: string };
 
@@ -35,6 +41,11 @@ export function ProfileView({
   const [passkeyError, setPasskeyError] = useState("");
   const [passkeyMsg, setPasskeyMsg] = useState("");
 
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushError, setPushError] = useState("");
+
   useEffect(() => {
     if (!browserSupportsWebAuthn()) return;
     setWebauthnSupported(true);
@@ -42,6 +53,32 @@ export function ProfileView({
       .then((data) => setPasskeys(data.passkeys))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    setPushSupported(true);
+    getExistingPushSubscription()
+      .then((sub) => setPushEnabled(!!sub))
+      .catch(() => {});
+  }, []);
+
+  async function togglePush() {
+    setPushError("");
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await disablePushNotifications();
+        setPushEnabled(false);
+      } else {
+        await enablePushNotifications();
+        setPushEnabled(true);
+      }
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "משהו השתבש");
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   async function addPasskey() {
     setPasskeyError("");
@@ -192,6 +229,27 @@ export function ProfileView({
           {passkeyMsg && <div className="text-xs text-muted">{passkeyMsg}</div>}
         </div>
       )}
+      {pushSupported && (
+        <div className="pt-3 border-t border-border flex flex-col gap-2">
+          <Label>התראות בנייד</Label>
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-tile">
+            <span className="text-[13px] text-ink">
+              {pushEnabled ? "התראות מופעלות במכשיר הזה" : "קבלת התראה גם כשהאפליקציה סגורה"}
+            </span>
+            <button
+              onClick={togglePush}
+              disabled={pushLoading}
+              className={`text-[12.5px] font-semibold px-3 py-1.5 rounded-lg cursor-pointer disabled:opacity-50 ${
+                pushEnabled ? "text-danger border border-danger" : "text-brand border border-brand"
+              }`}
+            >
+              {pushLoading ? "רגע…" : pushEnabled ? "כיבוי" : "הפעלה"}
+            </button>
+          </div>
+          {pushError && <div className="text-danger text-[13px]">{pushError}</div>}
+        </div>
+      )}
+
       <button onClick={logout} className="text-[13px] text-muted underline text-center cursor-pointer mt-1">
         התנתקות
       </button>

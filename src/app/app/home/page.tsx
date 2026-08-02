@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { getClientId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Waveform, DocIcon } from "@/components/icons";
+import { PushHintBanner } from "@/components/client/PushHintBanner";
 
 export default async function HomePage() {
   const clientId = (await getClientId())!;
   const [client, sessions] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, select: { totalSessions: true } }),
+    prisma.client.findUnique({ where: { id: clientId }, select: { totalSessions: true, hasSeenPushHint: true } }),
     prisma.lessonSession.findMany({ where: { clientId }, orderBy: { number: "asc" } }),
   ]);
   // A stale session cookie can outlive the client it belonged to (e.g. the
@@ -26,6 +27,7 @@ export default async function HomePage() {
 
   return (
     <div className="p-6 md:p-0 animate-fade-up">
+      <PushHintBanner show={!client.hasSeenPushHint} />
       <div className="grid md:grid-cols-3 gap-4 md:gap-5">
         <div className="md:col-span-2 bg-card border border-border rounded-[20px] p-[22px]">
           <div className="flex justify-between items-baseline">

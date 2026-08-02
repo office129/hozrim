@@ -29,10 +29,12 @@ export async function PATCH(req: NextRequest) {
     hasSeenSessionCompleteTip?: boolean;
     hasSeenWelcomePopup?: boolean;
     hasSeededWelcomeNotification?: boolean;
+    hasSeenPushHint?: boolean;
   } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (body?.profileTipSeen === true) data.hasSeenProfileTip = true;
   if (body?.sessionCompleteTipSeen === true) data.hasSeenSessionCompleteTip = true;
+  if (body?.pushHintSeen === true) data.hasSeenPushHint = true;
 
   // Confirming the welcome popup also drops a real notification into the
   // bell - the client discovers it themselves the normal way (the same

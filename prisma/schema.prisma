@@ -29,6 +29,7 @@ model Client {
   hasSeenSessionCompleteTip    Boolean  @default(false)
   hasSeenWelcomePopup          Boolean  @default(false)
   hasSeededWelcomeNotification Boolean  @default(false)
+  hasSeenPushHint              Boolean  @default(false)
   totalSessions                Int      @default(6)
   createdAt                    DateTime @default(now())
 
@@ -39,6 +40,7 @@ model Client {
   resetTokens            PasswordResetToken[]
   passkeys               ClientPasskey[]
   notifications          Notification[]
+  pushSubscriptions      PushSubscription[]
   driveFolderId          String? // the client's top-level Drive folder
   driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
   driveMeetingsFolderId  String? // the "פגישות והקלטות" subfolder inside driveFolderId — each session gets its own "פגישה N" folder inside this one
@@ -61,6 +63,23 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([clientId, createdAt])
+}
+
+// A device's Web Push subscription - lets the server push a real phone/
+// browser notification for a new Notification row, not just the in-app
+// bell. One row per device (a client using the app on two phones gets
+// two rows); on iOS this only works once the client has actually
+// installed the app to their home screen, not just visiting it in Safari.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
 }
 
 // The coach's own Google Drive, connected once via OAuth so the server can
