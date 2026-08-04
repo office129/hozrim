@@ -25,17 +25,35 @@ type Folder = {
 
 export function RoadmapList({ items, folders = [] }: { items: Item[]; folders?: Folder[] }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       <RoadmapItems items={items} />
       {folders.map((folder) => (
-        <div key={folder.id} className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2 px-0.5">
-            <FolderIcon />
-            <div className="text-sm font-semibold text-ink">{folder.title}</div>
-          </div>
+        <RoadmapFolder key={folder.id} folder={folder} />
+      ))}
+    </div>
+  );
+}
+
+function RoadmapFolder({ folder }: { folder: Folder }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full cursor-pointer flex items-center gap-3.5 px-3.5 py-3 text-right"
+      >
+        <div className="w-10 h-10 rounded-xl bg-brand-soft shrink-0 flex items-center justify-center">
+          <FolderIcon />
+        </div>
+        <div className="flex-1 min-w-0 text-sm font-semibold text-ink">{folder.title}</div>
+        <ChevronDown open={open} />
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5">
           <RoadmapItems items={folder.items} />
         </div>
-      ))}
+      )}
     </div>
   );
 }
