@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClient, isResponse } from "@/lib/guard";
+import { requireNonPreviewClient, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
   const { id } = await params;
 

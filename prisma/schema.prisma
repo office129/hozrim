@@ -31,6 +31,8 @@ model Client {
   hasSeededWelcomeNotification Boolean  @default(false)
   hasSeenPushHint              Boolean  @default(false)
   totalSessions                Int      @default(6)
+  firstLoginAt                 DateTime? // set once, the first time the client ever actually logs in - lets the coach tell "created but never opened the app" apart from "opened it"
+  lastActiveAt                 DateTime? // refreshed on login and on every authenticated request (see proxy.ts), for a rough "was here recently" signal
   createdAt                    DateTime @default(now())
 
   sessions               LessonSession[]
@@ -143,6 +145,7 @@ model LessonSession {
   fileName      String?
   durationSec   Int?
   driveFolderId String? // this session's own Drive folder — cached so the sync job doesn't have to look it up by name every run
+  viewedAt      DateTime? // set the first time the client opens this session's own page - lets the coach see whether (and when) they actually looked at it
 
   summaryText  String?
   summaryFiles SessionSummaryFile[]

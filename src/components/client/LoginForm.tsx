@@ -9,7 +9,7 @@ import { apiSend, ApiError } from "@/lib/api-client";
 import { PasswordInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
-export function LoginForm() {
+export function LoginForm({ expiredPreview = false }: { expiredPreview?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,6 +66,9 @@ export function LoginForm() {
         />
         <div className="font-heading font-bold text-[30px] text-brand-dark mt-6">חוזרים לבראשית</div>
         <div className="text-sm text-ink-soft mt-1.5">מרחב הליווי האישי שלך</div>
+        {expiredPreview && (
+          <div className="text-danger text-[13px] mt-4 max-w-[280px]">קישור התצוגה המקדימה פג תוקף</div>
+        )}
 
         <form onSubmit={onSubmit} className="w-full max-w-[280px] flex flex-col gap-3.5 mt-11">
           <input

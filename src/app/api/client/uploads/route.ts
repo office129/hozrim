@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClient, isResponse } from "@/lib/guard";
+import { requireNonPreviewClient, isResponse } from "@/lib/guard";
 import { saveUpload, UploadValidationError } from "@/lib/storage";
 
 // Fallback path when Drive isn't connected (or the client has no Drive
@@ -9,7 +9,7 @@ import { saveUpload, UploadValidationError } from "@/lib/storage";
 // Drive path (see /api/client/drive-upload/init) is tried first from the
 // browser; this only runs when that one isn't usable.
 export async function POST(req: NextRequest) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   const form = await req.formData().catch(() => null);
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 // Registers a file already uploaded straight to Drive (see
 // /api/client/drive-upload/init + relay) as a personal upload row.
 export async function PATCH(req: NextRequest) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   const body = await req.json().catch(() => null);

@@ -6,9 +6,14 @@ import { LoginForm } from "@/components/client/LoginForm";
 // logged in on this device (e.g. opening the link on the same phone the
 // app is already installed on) should land straight in the app instead
 // of being asked to log in again.
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const clientId = await getClientId();
   if (clientId) redirect("/app/home");
 
-  return <LoginForm />;
+  const { error } = await searchParams;
+  return <LoginForm expiredPreview={error === "preview-expired"} />;
 }

@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
-import { getClientId } from "@/lib/auth";
+import { after } from "next/server";
+import { getClientId, isPreviewClientSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SessionDetailView } from "@/components/client/SessionDetailView";
 
 export default async function SessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const clientId = (await getClientId())!;
   const { id } = await params;
+  const preview = await isPreviewClientSession();
 
   const [session, client] = await Promise.all([
     prisma.lessonSession.findFirst({
@@ -15,6 +17,13 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
     prisma.client.findUnique({ where: { id: clientId }, select: { hasSeenSessionCompleteTip: true } }),
   ]);
   if (!session) notFound();
+
+  // First real look at this session's own page - the coach previewing it
+  // themselves shouldn't count as the client having viewed it.
+  if (!session.viewedAt && !preview) {
+    const sessionId = session.id;
+    after(() => prisma.lessonSession.update({ where: { id: sessionId }, data: { viewedAt: new Date() } }).catch(() => {}));
+  }
 
   return (
     <SessionDetailView

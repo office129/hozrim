@@ -18,6 +18,8 @@ type ClientDetail = {
   email: string;
   totalSessions: number;
   driveFolderId: string | null;
+  firstLoginAt: string | null;
+  lastActiveAt: string | null;
   sessions: {
     id: string;
     number: number;
@@ -26,10 +28,21 @@ type ClientDetail = {
     fileName: string | null;
     summaryText: string | null;
     summaryFiles: { id: string; url: string; fileName: string }[];
+    viewedAt: string | null;
   }[];
   exercises: { id: string; title: string; audioFileName: string | null; pdfFileName: string | null }[];
   notes: { sessionId: string; number: number; title: string; text: string | null }[];
 };
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("he-IL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 const TABS = [
   { key: "sessions", label: "פגישות והקלטות" },
@@ -43,6 +56,19 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
   const [banner, setBanner] = useState<{ emailSent: boolean; tempPassword?: string } | null>(null);
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  async function createPreviewLink() {
+    setPreviewLoading(true);
+    setPreviewUrl(null);
+    try {
+      const data = await apiSend(`/api/admin/clients/${client.id}/preview-link`, "POST");
+      setPreviewUrl(data.url);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   async function resetPassword() {
     if (!confirm(`להנפיק סיסמה זמנית חדשה ל־${client.name}? הסיסמה הקודמת תפסיק לעבוד.`)) return;
@@ -105,6 +131,13 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
           </div>
         </div>
         <button
+          onClick={createPreviewLink}
+          disabled={previewLoading}
+          className="text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-lg shrink-0 cursor-pointer disabled:opacity-50"
+        >
+          {previewLoading ? "יוצר/ת…" : "קישור תצוגה מקדימה"}
+        </button>
+        <button
           onClick={resetPassword}
           disabled={resetting}
           className="text-[12.5px] font-semibold text-brand border border-brand px-3 py-1.5 rounded-lg shrink-0 cursor-pointer disabled:opacity-50"
@@ -134,7 +167,32 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
         />
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-[12.5px] text-muted">
+        <span>
+          כניסה ראשונה:{" "}
+          <span className="text-ink">{client.firstLoginAt ? formatDateTime(client.firstLoginAt) : "טרם נכנס/ה לאפליקציה"}</span>
+        </span>
+        {client.lastActiveAt && (
+          <span>
+            פעילות אחרונה: <span className="text-ink">{formatDateTime(client.lastActiveAt)}</span>
+          </span>
+        )}
+      </div>
+
       <ClientDriveFolderRow clientId={client.id} driveFolderId={client.driveFolderId} />
+
+      {previewUrl && (
+        <div className="mb-5 rounded-xl border border-brand-soft-2 bg-brand-soft-2 px-4 py-3 text-sm text-ink">
+          קישור זמני (בתוקף לשעה) לצפייה באפליקציה כפי שהלקוח/ה רואה אותה, ללא היומן האישי:{" "}
+          <CopyableSecret value={previewUrl} />{" "}
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-[12.5px] font-semibold text-brand underline">
+            פתיחה
+          </a>
+          <button className="underline mr-3" onClick={() => setPreviewUrl(null)}>
+            סגירה
+          </button>
+        </div>
+      )}
 
       {banner && (
         <div className="mb-5 rounded-xl border border-brand-soft-2 bg-brand-soft-2 px-4 py-3 text-sm text-ink">

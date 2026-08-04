@@ -32,7 +32,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         email: client.email,
         totalSessions: client.totalSessions,
         driveFolderId: client.driveFolderId,
-        sessions: client.sessions,
+        firstLoginAt: client.firstLoginAt?.toISOString() ?? null,
+        lastActiveAt: client.lastActiveAt?.toISOString() ?? null,
+        sessions: client.sessions.map((s) => ({ ...s, viewedAt: s.viewedAt?.toISOString() ?? null })),
         exercises: client.exercises,
         notes: client.sessions
           .filter((s) => s.clientNote && s.clientNote.trim())

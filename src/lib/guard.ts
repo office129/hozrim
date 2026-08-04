@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { destroyAdminSession, destroyClientSession, getAdminId, getClientId } from "@/lib/auth";
+import { destroyAdminSession, destroyClientSession, getAdminId, getClientId, isPreviewClientSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function requireAdmin(): Promise<string | NextResponse> {
@@ -31,6 +31,18 @@ export async function requireClient(): Promise<string | NextResponse> {
   }
 
   return id;
+}
+
+// Same as requireClient, but also rejects a coach preview session -
+// used on every route touching the personal journal or personal uploads,
+// which stay private even from a preview link.
+export async function requireNonPreviewClient(): Promise<string | NextResponse> {
+  const result = await requireClient();
+  if (isResponse(result)) return result;
+  if (await isPreviewClientSession()) {
+    return NextResponse.json({ error: "לא זמין בתצוגה מקדימה" }, { status: 403 });
+  }
+  return result;
 }
 
 export function isResponse(x: unknown): x is NextResponse {

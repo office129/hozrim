@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireClient, isResponse } from "@/lib/guard";
+import { requireNonPreviewClient, isResponse } from "@/lib/guard";
 
 // Client-facing counterpart of /api/admin/drive-upload/relay - same plain
 // server-to-server relay of one chunk to Google's resumable-upload session
-// URL, just gated by requireClient instead of requireAdmin.
+// URL, just gated by requireNonPreviewClient instead of requireAdmin.
 export async function PUT(req: NextRequest) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   const uploadUrl = req.headers.get("x-drive-upload-url") || "";

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClient, isResponse } from "@/lib/guard";
+import { requireNonPreviewClient, isResponse } from "@/lib/guard";
 
 export async function GET() {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   const groups = await prisma.personalUploadGroup.findMany({
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   const body = await req.json().catch(() => null);

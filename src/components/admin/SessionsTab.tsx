@@ -21,7 +21,12 @@ type SessionData = {
   fileName: string | null;
   summaryText: string | null;
   summaryFiles: { id: string; url: string; fileName: string }[];
+  viewedAt: string | null;
 };
+
+function formatViewedDate(iso: string) {
+  return new Date(iso).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+}
 
 export function SessionsTab({ clientId, sessions }: { clientId: string; sessions: SessionData[] }) {
   const router = useRouter();
@@ -206,7 +211,15 @@ function SessionRow({
               }}
               onDelete={deleteSession}
             />
-            <div className="text-xs text-muted mt-0.5">{session.fileName || "טרם הועלתה הקלטה"}</div>
+            <div className="text-xs text-muted mt-0.5">
+              {session.fileName || "טרם הועלתה הקלטה"}
+              {" · "}
+              {session.viewedAt ? (
+                <span className="text-brand">נצפה ע"י הלקוח/ה ב-{formatViewedDate(session.viewedAt)}</span>
+              ) : (
+                "טרם נצפה"
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

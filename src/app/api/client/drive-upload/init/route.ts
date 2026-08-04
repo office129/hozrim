@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClient, isResponse } from "@/lib/guard";
+import { requireNonPreviewClient, isResponse } from "@/lib/guard";
 import {
   createResumableUploadSession,
   getConnection,
@@ -13,7 +13,7 @@ import {
 // /api/admin/drive-upload/init. No clientId in the body: ownership of the
 // group is checked against the caller's own session.
 export async function POST(req: NextRequest) {
-  const clientId = await requireClient();
+  const clientId = await requireNonPreviewClient();
   if (isResponse(clientId)) return clientId;
 
   if (!(await getConnection())) {
