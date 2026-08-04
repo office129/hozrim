@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
-import { getOrCreateLibraryFolder, findOrCreateLibraryItemFolder, getConnection } from "@/lib/google-drive-oauth";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -18,19 +17,14 @@ export async function POST(req: NextRequest) {
   const title = typeof body?.title === "string" ? body.title.trim() : "";
   if (!title) return NextResponse.json({ error: "נא להזין שם לשיעור" }, { status: 400 });
 
-  const count = await prisma.libraryItem.count();
-  const item = await prisma.libraryItem.create({ data: { title, number: count + 1 } });
-
-  // Best-effort: create the item's own Drive folder (named after its
-  // title) right away instead of waiting for the first upload.
-  if (await getConnection()) {
-    try {
-      const libraryFolderId = await getOrCreateLibraryFolder();
-      await findOrCreateLibraryItemFolder(libraryFolderId, item.title);
-    } catch (e) {
-      console.error("Failed to create Drive folder for new library item", e);
-    }
+  const folderId = typeof body?.folderId === "string" && body.folderId ? body.folderId : null;
+  if (folderId) {
+    const folder = await prisma.libraryFolder.findUnique({ where: { id: folderId } });
+    if (!folder) return NextResponse.json({ error: "התיקייה לא נמצאה" }, { status: 404 });
   }
+
+  const count = await prisma.libraryItem.count({ where: { folderId } });
+  const item = await prisma.libraryItem.create({ data: { title, number: count + 1, folderId } });
 
   return NextResponse.json({ item });
 }

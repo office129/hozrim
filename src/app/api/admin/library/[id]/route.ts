@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
-import { isHttpUrl } from "@/lib/external-links";
-import { trashDriveFile } from "@/lib/google-drive-oauth";
+import { isHttpUrl, driveFileId } from "@/lib/external-links";
+import { trashDriveFile, getOrCreateLibraryFolder, findOrCreateLibraryCategoryFolder, moveDriveFile } from "@/lib/google-drive-oauth";
 
 const LINK_SLOTS = {
   video: { urlField: "videoFileUrl", nameField: "videoFileName" },
@@ -11,13 +11,20 @@ const LINK_SLOTS = {
   file: { urlField: "fileUrl", nameField: "fileName" },
 } as const;
 
+async function renumberContainer(folderId: string | null) {
+  const remaining = await prisma.libraryItem.findMany({ where: { folderId }, orderBy: { number: "asc" } });
+  await prisma.$transaction(
+    remaining.map((it, i) => prisma.libraryItem.update({ where: { id: it.id }, data: { number: i + 1 } }))
+  );
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
-  const data: Record<string, string | null> = {};
+  const data: Record<string, string | number | null> = {};
 
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
 
@@ -43,12 +50,61 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Moving a lesson into a different category (or back to the top level,
+  // via folderId: null) - it goes to the end of its new container and the
+  // gap it leaves behind in the old one is closed up.
+  let moveFrom: { folderId: string | null } | null = null;
+  if ("folderId" in (body ?? {})) {
+    const targetFolderId = typeof body.folderId === "string" && body.folderId ? body.folderId : null;
+    const existing = await prisma.libraryItem.findUnique({ where: { id }, include: { folder: true } });
+    if (!existing) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+    const targetFolder = targetFolderId ? await prisma.libraryFolder.findUnique({ where: { id: targetFolderId } }) : null;
+    if (targetFolderId && !targetFolder) return NextResponse.json({ error: "התיקייה לא נמצאה" }, { status: 404 });
+
+    if (targetFolderId !== existing.folderId) {
+      const count = await prisma.libraryItem.count({ where: { folderId: targetFolderId } });
+      data.folderId = targetFolderId;
+      data.number = count + 1;
+      moveFrom = { folderId: existing.folderId };
+
+      // A legacy item with its own Drive folder keeps its files there
+      // regardless of grouping - only a newer item (files living directly
+      // in a shared container folder) needs its actual files moved along
+      // with it.
+      if (!existing.driveFolderId) {
+        try {
+          const libraryFolderId = await getOrCreateLibraryFolder();
+          const fromFolderId = existing.folder?.driveFolderId ?? libraryFolderId;
+
+          let toFolderId = libraryFolderId;
+          if (targetFolder) {
+            toFolderId = targetFolder.driveFolderId || (await findOrCreateLibraryCategoryFolder(libraryFolderId, targetFolder.title));
+            if (!targetFolder.driveFolderId) {
+              await prisma.libraryFolder.update({ where: { id: targetFolder.id }, data: { driveFolderId: toFolderId } });
+            }
+          }
+
+          if (fromFolderId !== toFolderId) {
+            for (const url of [existing.videoFileUrl, existing.audioFileUrl, existing.fileUrl]) {
+              const fileId = url ? driveFileId(url) : null;
+              if (fileId) await moveDriveFile(fileId, fromFolderId, toFolderId);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to move library item's Drive files between folders", e);
+        }
+      }
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "אין מה לעדכן" }, { status: 400 });
   }
 
   const item = await prisma.libraryItem.update({ where: { id }, data });
   if (hasLinkUpdate && previousUrl) await deleteUploadByUrl(previousUrl);
+  if (moveFrom) await renumberContainer(moveFrom.folderId);
   return NextResponse.json({ item });
 }
 
@@ -74,11 +130,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     }
   }
   await prisma.libraryItem.delete({ where: { id } });
-
-  const remaining = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
-  await prisma.$transaction(
-    remaining.map((it, i) => prisma.libraryItem.update({ where: { id: it.id }, data: { number: i + 1 } }))
-  );
+  await renumberContainer(existing.folderId);
 
   return NextResponse.json({ ok: true });
 }

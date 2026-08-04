@@ -6,9 +6,10 @@ import {
   reconcileSessionFolder,
   reconcileLibraryItemFolder,
   discoverNewSessionFolders,
-  discoverNewLibraryItemFolders,
+  discoverNewLibraryFolders,
   removeSessionIfFolderGone,
   removeLibraryItemIfFolderGone,
+  removeLibraryFolderIfDriveFolderGone,
 } from "@/lib/drive-sync";
 
 // The full Drive sync job — shared by the scheduled cron route and the
@@ -193,6 +194,15 @@ async function runFolderSync() {
     }
   }
 
+  const libraryFolders = await prisma.libraryFolder.findMany();
+  for (const folder of libraryFolders) {
+    try {
+      await removeLibraryFolderIfDriveFolderGone(folder);
+    } catch (e) {
+      console.error("Failed to check library category Drive folder", folder.id, e);
+    }
+  }
+
   const libraryItems = await prisma.libraryItem.findMany();
   let libraryErrors = 0;
   for (const item of libraryItems) {
@@ -216,9 +226,9 @@ async function runFolderSync() {
 
   let newLibraryFolders = 0;
   try {
-    newLibraryFolders = await discoverNewLibraryItemFolders();
+    newLibraryFolders = await discoverNewLibraryFolders();
   } catch (e) {
-    console.error("Failed to discover new library item Drive folders", e);
+    console.error("Failed to discover new library category folders", e);
   }
 
   return {
@@ -333,6 +343,17 @@ export async function syncLibraryFolders(): Promise<void> {
   const connection = await getConnection();
   if (!connection) return;
 
+  const folders = await prisma.libraryFolder.findMany();
+  await Promise.all(
+    folders.map(async (folder) => {
+      try {
+        await removeLibraryFolderIfDriveFolderGone(folder);
+      } catch (e) {
+        console.error("Failed to check library category Drive folder", folder.id, e);
+      }
+    })
+  );
+
   const items = await prisma.libraryItem.findMany();
   await Promise.all(
     items.map(async (item) => {
@@ -346,8 +367,8 @@ export async function syncLibraryFolders(): Promise<void> {
   );
 
   try {
-    await discoverNewLibraryItemFolders();
+    await discoverNewLibraryFolders();
   } catch (e) {
-    console.error("Failed to discover new library item Drive folders", e);
+    console.error("Failed to discover new library category folders", e);
   }
 }

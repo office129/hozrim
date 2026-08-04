@@ -8,6 +8,12 @@ export default async function LibraryPage() {
   // down, not connected) shouldn't block the page from loading.
   await syncLibraryFolders().catch((e) => console.error("Failed to sync library Drive folders", e));
 
-  const items = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
-  return <LibraryView items={items} />;
+  const [items, folders] = await Promise.all([
+    prisma.libraryItem.findMany({ where: { folderId: null }, orderBy: { number: "asc" } }),
+    prisma.libraryFolder.findMany({
+      orderBy: { order: "asc" },
+      include: { items: { orderBy: { number: "asc" } } },
+    }),
+  ]);
+  return <LibraryView items={items} folders={folders} />;
 }

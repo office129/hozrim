@@ -7,7 +7,7 @@ import {
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   getOrCreateLibraryFolder,
-  findOrCreateLibraryItemFolder,
+  findOrCreateLibraryCategoryFolder,
 } from "@/lib/google-drive-oauth";
 
 // Starts a direct-to-Drive upload for a specific client's session/exercise
@@ -52,15 +52,29 @@ export async function POST(req: NextRequest) {
   }
 
   if (folder === "library") {
-    const item = await prisma.libraryItem.findUnique({ where: { id: libraryItemId } });
+    const item = await prisma.libraryItem.findUnique({ where: { id: libraryItemId }, include: { folder: true } });
     if (!item) return NextResponse.json({ error: "השיעור לא נמצא" }, { status: 404 });
     try {
-      // Each library item gets its own folder (named after its title), so
-      // its video/audio/file all land together instead of loose in the
-      // shared library folder.
-      const libraryFolderId = await getOrCreateLibraryFolder();
-      const folderId = await findOrCreateLibraryItemFolder(libraryFolderId, item.title);
-      const uploadUrl = await createResumableUploadSession(folderId, filename, mimeType, fileSize);
+      // A legacy item (from before categories existed) keeps uploading
+      // into its own dedicated folder. A newer item's files go directly
+      // into whichever folder contains it - its category's, or the
+      // top-level library folder if it isn't in one.
+      let targetFolderId: string;
+      if (item.driveFolderId) {
+        targetFolderId = item.driveFolderId;
+      } else {
+        const libraryFolderId = await getOrCreateLibraryFolder();
+        if (item.folder) {
+          targetFolderId =
+            item.folder.driveFolderId || (await findOrCreateLibraryCategoryFolder(libraryFolderId, item.folder.title));
+          if (!item.folder.driveFolderId) {
+            await prisma.libraryFolder.update({ where: { id: item.folder.id }, data: { driveFolderId: targetFolderId } });
+          }
+        } else {
+          targetFolderId = libraryFolderId;
+        }
+      }
+      const uploadUrl = await createResumableUploadSession(targetFolderId, filename, mimeType, fileSize);
       return NextResponse.json({ uploadUrl });
     } catch (e) {
       console.error("Failed to start Drive upload session for library item", e);

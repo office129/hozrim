@@ -50,6 +50,15 @@ export function ChevronDown({ open }: { open: boolean }) {
   );
 }
 
+export function FolderIcon({ color = "var(--color-brand)" }: { color?: string }) {
+  return (
+    <div className="relative w-[18px] h-[15px] shrink-0">
+      <div className="absolute top-0 right-0 w-2.5 h-1.5 rounded-t-[2px]" style={{ background: color }} />
+      <div className="absolute bottom-0 w-full h-3 rounded-[3px]" style={{ background: color }} />
+    </div>
+  );
+}
+
 export function DragHandle() {
   return (
     <div className="cursor-grab flex flex-col gap-[3px] shrink-0 p-1">

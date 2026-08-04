@@ -9,13 +9,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const orderedIds: string[] = Array.isArray(body?.orderedIds) ? body.orderedIds : [];
   if (!orderedIds.length) return NextResponse.json({ error: "רשימה ריקה" }, { status: 400 });
-  // Reordering happens within one container at a time (either the
-  // top-level list or a single category's list) - scoping the update by
-  // folderId guards against a stray client-side bug mixing the two.
-  const folderId = typeof body?.folderId === "string" && body.folderId ? body.folderId : null;
 
   await prisma.$transaction(
-    orderedIds.map((id, i) => prisma.libraryItem.updateMany({ where: { id, folderId }, data: { number: i + 1 } }))
+    orderedIds.map((id, i) => prisma.libraryFolder.updateMany({ where: { id }, data: { order: i } }))
   );
 
   return NextResponse.json({ ok: true });

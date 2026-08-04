@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { deleteUploadByUrl } from "@/lib/storage";
 import { driveFileId } from "@/lib/external-links";
 import { notifyClient } from "@/lib/notifications";
 import {
@@ -8,7 +9,7 @@ import {
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   getOrCreateLibraryFolder,
-  findOrCreateLibraryItemFolder,
+  trashDriveFile,
 } from "@/lib/google-drive-oauth";
 
 // Notices that a session's own Drive folder was deleted (or trashed) in
@@ -37,18 +38,52 @@ export async function removeSessionIfFolderGone(session: {
   return true;
 }
 
-// Same idea as removeSessionIfFolderGone, for a library item.
+// Same idea as removeSessionIfFolderGone, for a legacy library item that
+// still has its own Drive folder (from before categories existed) - a
+// newer item with no driveFolderId of its own has nothing here to check,
+// since its files live directly in its container folder instead.
 export async function removeLibraryItemIfFolderGone(item: {
   id: string;
+  folderId: string | null;
   driveFolderId: string | null;
 }): Promise<boolean> {
   if (!item.driveFolderId) return false;
   if (await folderExists(item.driveFolderId)) return false;
 
   await prisma.libraryItem.delete({ where: { id: item.id } });
-  const remaining = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
+  const remaining = await prisma.libraryItem.findMany({
+    where: { folderId: item.folderId },
+    orderBy: { number: "asc" },
+  });
   await prisma.$transaction(
     remaining.map((it, i) => prisma.libraryItem.update({ where: { id: it.id }, data: { number: i + 1 } }))
+  );
+  return true;
+}
+
+// Same idea, for a category folder itself - if its Drive folder was
+// deleted/trashed by hand, the lessons inside it lost their files along
+// with it (they lived directly in that folder, not in one of their own),
+// so they're removed the same way a session/item whose own folder
+// disappeared would be.
+export async function removeLibraryFolderIfDriveFolderGone(folder: {
+  id: string;
+  driveFolderId: string | null;
+}): Promise<boolean> {
+  if (!folder.driveFolderId) return false;
+  if (await folderExists(folder.driveFolderId)) return false;
+
+  const items = await prisma.libraryItem.findMany({ where: { folderId: folder.id } });
+  for (const item of items) {
+    await deleteUploadByUrl(item.videoFileUrl);
+    await deleteUploadByUrl(item.audioFileUrl);
+    await deleteUploadByUrl(item.fileUrl);
+  }
+  await prisma.libraryItem.deleteMany({ where: { folderId: folder.id } });
+  await prisma.libraryFolder.delete({ where: { id: folder.id } });
+  const remaining = await prisma.libraryFolder.findMany({ orderBy: { order: "asc" } });
+  await prisma.$transaction(
+    remaining.map((f, i) => prisma.libraryFolder.update({ where: { id: f.id }, data: { order: i } }))
   );
   return true;
 }
@@ -151,22 +186,22 @@ export async function reconcileSessionFolder(
   }
 }
 
-// Same idea as reconcileSessionFolder, for a library item's video/audio/
-// generic-file slots.
+// Same idea as reconcileSessionFolder, for a legacy library item's own
+// Drive folder (video/audio/generic-file slots). Only applies to an item
+// that still has its own driveFolderId from before categories existed -
+// a newer item's files live directly in a shared container folder (the
+// top-level library folder, or its category's), where a loose file can't
+// be reliably attributed to one specific lesson among possibly several
+// sharing that folder, so those are only ever updated through the app.
 export async function reconcileLibraryItemFolder(item: {
   id: string;
-  title: string;
   videoFileUrl: string | null;
   audioFileUrl: string | null;
   fileUrl: string | null;
   driveFolderId: string | null;
 }): Promise<void> {
-  let folderId = item.driveFolderId;
-  if (!folderId) {
-    const libraryFolderId = await getOrCreateLibraryFolder();
-    folderId = await findOrCreateLibraryItemFolder(libraryFolderId, item.title);
-    await prisma.libraryItem.update({ where: { id: item.id }, data: { driveFolderId: folderId } });
-  }
+  if (!item.driveFolderId) return;
+  const folderId = item.driveFolderId;
 
   const files = await listFolderFiles(folderId);
   const currentIds = new Set(files.map((f) => f.id));
@@ -263,26 +298,30 @@ export async function discoverNewSessionFolders(client: {
   return newFolders.length;
 }
 
-// Same idea as discoverNewSessionFolders, for "ספריית תכנים".
-export async function discoverNewLibraryItemFolders(): Promise<number> {
+// Same idea as discoverNewSessionFolders, for "ספריית תכנים" - a subfolder
+// added by hand directly under the library folder becomes a new category,
+// not a new lesson (a lesson has no folder of its own to be discovered
+// this way anymore). Checks against both known category folders and
+// legacy per-item folders, so an old item's own folder isn't mistakenly
+// re-adopted as a new category.
+export async function discoverNewLibraryFolders(): Promise<number> {
   const libraryFolderId = await getOrCreateLibraryFolder();
   const subfolders = await listSubfolders(libraryFolderId);
-  const known = await prisma.libraryItem.findMany({ select: { driveFolderId: true } });
-  const knownIds = new Set(known.map((i) => i.driveFolderId).filter((x): x is string => !!x));
+  const [knownFolders, knownItems] = await Promise.all([
+    prisma.libraryFolder.findMany({ select: { driveFolderId: true } }),
+    prisma.libraryItem.findMany({ select: { driveFolderId: true } }),
+  ]);
+  const knownIds = new Set(
+    [...knownFolders.map((f) => f.driveFolderId), ...knownItems.map((i) => i.driveFolderId)].filter(
+      (x): x is string => !!x
+    )
+  );
   const newFolders = subfolders.filter((f) => !knownIds.has(f.id));
 
   for (const folder of newFolders) {
-    const count = await prisma.libraryItem.count();
-    const item = await prisma.libraryItem.create({
-      data: { title: folder.name, number: count + 1, driveFolderId: folder.id },
-    });
-    await reconcileLibraryItemFolder({
-      id: item.id,
-      title: item.title,
-      videoFileUrl: null,
-      audioFileUrl: null,
-      fileUrl: null,
-      driveFolderId: folder.id,
+    const count = await prisma.libraryFolder.count();
+    await prisma.libraryFolder.create({
+      data: { title: folder.name, order: count, driveFolderId: folder.id },
     });
   }
   return newFolders.length;

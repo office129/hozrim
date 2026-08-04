@@ -321,13 +321,35 @@ export async function findOrCreateSessionFolder(meetingsFolderId: string, sessio
   return createFolder(sessionTitle, meetingsFolderId);
 }
 
-// Same idea as findOrCreateSessionFolder, one folder per library item
-// (named after the item's own title) inside the general "ספריית תכנים"
-// folder.
-export async function findOrCreateLibraryItemFolder(libraryFolderId: string, itemTitle: string): Promise<string> {
-  const existing = await findSubfolder(libraryFolderId, itemTitle);
+// Same idea as findOrCreateSessionFolder, one folder per library category
+// (named after the category's own title) inside the general "ספריית
+// תכנים" folder — lessons inside a category store their files directly
+// here rather than each getting their own further-nested subfolder.
+export async function findOrCreateLibraryCategoryFolder(libraryFolderId: string, categoryTitle: string): Promise<string> {
+  const existing = await findSubfolder(libraryFolderId, categoryTitle);
   if (existing) return existing;
-  return createFolder(itemTitle, libraryFolderId);
+  return createFolder(categoryTitle, libraryFolderId);
+}
+
+// Renames a Drive file/folder in place - used when a category is renamed
+// in the app so its Drive folder's name doesn't go stale.
+export async function renameDriveFile(fileId: string, name: string): Promise<void> {
+  await driveApiFetch(`/files/${fileId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+// Moves a file between two folders it's directly inside of - used when a
+// lesson is reassigned to a different category (or back to the top-level
+// library folder), so its actual file in Drive follows the same move
+// instead of being left behind in its old location.
+export async function moveDriveFile(fileId: string, fromFolderId: string, toFolderId: string): Promise<void> {
+  await driveApiFetch(
+    `/files/${fileId}?addParents=${encodeURIComponent(toFolderId)}&removeParents=${encodeURIComponent(fromFolderId)}`,
+    { method: "PATCH" }
+  );
 }
 
 // Creates a fresh folder (with its own "תרגולים" and "פגישות והקלטות"

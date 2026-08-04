@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, DocIcon, PlayTriangle, Waveform } from "@/components/icons";
+import { ChevronDown, DocIcon, FolderIcon, PlayTriangle, Waveform } from "@/components/icons";
 import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
 import { driveEmbedUrl } from "@/lib/external-links";
 
@@ -17,7 +17,30 @@ type Item = {
   fileName: string | null;
 };
 
-export function RoadmapList({ items }: { items: Item[] }) {
+type Folder = {
+  id: string;
+  title: string;
+  items: Item[];
+};
+
+export function RoadmapList({ items, folders = [] }: { items: Item[]; folders?: Folder[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <RoadmapItems items={items} />
+      {folders.map((folder) => (
+        <div key={folder.id} className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-2 px-0.5">
+            <FolderIcon />
+            <div className="text-sm font-semibold text-ink">{folder.title}</div>
+          </div>
+          <RoadmapItems items={folder.items} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RoadmapItems({ items }: { items: Item[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (

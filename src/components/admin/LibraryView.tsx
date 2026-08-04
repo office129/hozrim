@@ -7,25 +7,41 @@ import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { tryUploadLibraryFileToDrive } from "@/lib/drive-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
 import { useDragReorder } from "@/lib/useDragReorder";
-import { DragHandle } from "@/components/icons";
+import { DragHandle, ChevronDown, FolderIcon } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
 import { UploadOrLinkControl } from "./UploadOrLinkControl";
+
+const NO_FOLDER = "__none__";
 
 type LibraryItemData = {
   id: string;
   number: number;
   title: string;
+  folderId: string | null;
   videoFileName: string | null;
   audioFileName: string | null;
   fileName: string | null;
 };
 
-export function LibraryView({ items }: { items: LibraryItemData[] }) {
+type LibraryFolderData = {
+  id: string;
+  title: string;
+  items: LibraryItemData[];
+};
+
+export function LibraryView({ items, folders }: { items: LibraryItemData[]; folders: LibraryFolderData[] }) {
   const router = useRouter();
-  const [showAdd, setShowAdd] = useState(false);
-  const { bind } = useDragReorder(items, async (orderedIds) => {
-    await apiSend("/api/admin/library/reorder", "POST", { orderedIds });
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [showAddFolder, setShowAddFolder] = useState(false);
+  const folderOptions = folders.map((f) => ({ id: f.id, title: f.title }));
+
+  const { bind: bindItems } = useDragReorder(items, async (orderedIds) => {
+    await apiSend("/api/admin/library/reorder", "POST", { orderedIds, folderId: null });
+    router.refresh();
+  });
+  const { bind: bindFolders } = useDragReorder(folders, async (orderedIds) => {
+    await apiSend("/api/admin/library/folders/reorder", "POST", { orderedIds });
     router.refresh();
   });
 
@@ -38,24 +54,121 @@ export function LibraryView({ items }: { items: LibraryItemData[] }) {
 
       <div className="flex flex-col gap-2.5">
         {items.map((item, idx) => (
-          <LibraryRow key={item.id} item={item} dragProps={bind(idx)} />
+          <LibraryRow key={item.id} item={item} folders={folderOptions} dragProps={bindItems(idx)} />
         ))}
         <button
           className="mt-1.5 p-3 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[13px] cursor-pointer"
-          onClick={() => setShowAdd(true)}
+          onClick={() => setShowAddItem(true)}
         >
           + הוספת שיעור
         </button>
       </div>
 
-      {showAdd && (
+      <div className="mt-7 flex flex-col gap-2.5">
+        <div className="font-heading font-bold text-base text-ink">תיקיות</div>
+        {folders.map((folder, idx) => (
+          <FolderSection key={folder.id} folder={folder} folders={folderOptions} dragProps={bindFolders(idx)} />
+        ))}
+        <button
+          className="p-3 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[13px] cursor-pointer"
+          onClick={() => setShowAddFolder(true)}
+        >
+          + הוספת תיקייה
+        </button>
+      </div>
+
+      {showAddItem && (
         <PromptModal
           title="שיעור פתיחה חדש"
+          placeholder="שם השיעור"
+          onCancel={() => setShowAddItem(false)}
+          onConfirm={async (title) => {
+            setShowAddItem(false);
+            await apiSend("/api/admin/library", "POST", { title });
+            router.refresh();
+          }}
+        />
+      )}
+      {showAddFolder && (
+        <PromptModal
+          title="תיקייה חדשה"
+          placeholder="שם התיקייה"
+          onCancel={() => setShowAddFolder(false)}
+          onConfirm={async (title) => {
+            setShowAddFolder(false);
+            await apiSend("/api/admin/library/folders", "POST", { title });
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FolderSection({
+  folder,
+  folders,
+  dragProps,
+}: {
+  folder: LibraryFolderData;
+  folders: { id: string; title: string }[];
+  dragProps: ReturnType<ReturnType<typeof useDragReorder>["bind"]>;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const { bind } = useDragReorder(folder.items, async (orderedIds) => {
+    await apiSend("/api/admin/library/reorder", "POST", { orderedIds, folderId: folder.id });
+    router.refresh();
+  });
+
+  async function deleteFolder() {
+    if (!confirm(`למחוק את התיקייה "${folder.title}"? כל השיעורים שבתוכה יימחקו גם הם.`)) return;
+    await apiSend(`/api/admin/library/folders/${folder.id}`, "DELETE");
+    router.refresh();
+  }
+
+  return (
+    <div {...dragProps} className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <DragHandle />
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-right">
+          <FolderIcon />
+          <span className="text-[13px] text-muted shrink-0">({folder.items.length})</span>
+        </button>
+        <div className="flex-1 min-w-0">
+          <InlineEditableText
+            value={folder.title}
+            onSave={async (next) => {
+              await apiSend(`/api/admin/library/folders/${folder.id}`, "PATCH", { title: next });
+              router.refresh();
+            }}
+            onDelete={deleteFolder}
+          />
+        </div>
+        <ChevronDown open={open} />
+      </div>
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-2.5">
+          {folder.items.map((item, idx) => (
+            <LibraryRow key={item.id} item={item} folders={folders} dragProps={bind(idx)} />
+          ))}
+          <button
+            className="p-2.5 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[12.5px] cursor-pointer"
+            onClick={() => setShowAdd(true)}
+          >
+            + הוספת שיעור לתיקייה
+          </button>
+        </div>
+      )}
+      {showAdd && (
+        <PromptModal
+          title="שיעור חדש"
           placeholder="שם השיעור"
           onCancel={() => setShowAdd(false)}
           onConfirm={async (title) => {
             setShowAdd(false);
-            await apiSend("/api/admin/library", "POST", { title });
+            await apiSend("/api/admin/library", "POST", { title, folderId: folder.id });
             router.refresh();
           }}
         />
@@ -66,9 +179,11 @@ export function LibraryView({ items }: { items: LibraryItemData[] }) {
 
 function LibraryRow({
   item,
+  folders,
   dragProps,
 }: {
   item: LibraryItemData;
+  folders: { id: string; title: string }[];
   dragProps: ReturnType<ReturnType<typeof useDragReorder>["bind"]>;
 }) {
   const router = useRouter();
@@ -80,6 +195,11 @@ function LibraryRow({
   async function deleteItem() {
     if (!confirm(`למחוק את "${item.title}"?`)) return;
     await apiSend(`/api/admin/library/${item.id}`, "DELETE");
+    router.refresh();
+  }
+
+  async function moveToFolder(folderId: string | null) {
+    await apiSend(`/api/admin/library/${item.id}`, "PATCH", { folderId });
     router.refresh();
   }
 
@@ -219,6 +339,20 @@ function LibraryRow({
             </button>
           )}
         </div>
+        {folders.length > 0 && (
+          <select
+            value={item.folderId ?? NO_FOLDER}
+            onChange={(e) => moveToFolder(e.target.value === NO_FOLDER ? null : e.target.value)}
+            className="text-[11.5px] text-muted bg-tile rounded-[9px] px-2.5 py-1.5 border-none outline-none cursor-pointer"
+          >
+            <option value={NO_FOLDER}>ללא תיקייה</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       {error && <div className="text-danger text-xs">{error}</div>}
     </div>

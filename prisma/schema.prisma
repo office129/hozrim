@@ -188,12 +188,27 @@ model Exercise {
   @@index([clientId, number])
 }
 
+// An optional grouping folder inside "ספריית תכנים" (e.g. "מודול 1") -
+// mirrored as a real subfolder in Drive so the coach's own Drive browsing
+// matches the app. Lessons inside it store their files directly in this
+// folder rather than each getting its own nested subfolder.
+model LibraryFolder {
+  id            String        @id @default(cuid())
+  order         Int
+  title         String
+  driveFolderId String?
+  createdAt     DateTime      @default(now())
+  items         LibraryItem[]
+}
+
 // The general opening-content template shown to every client under
 // "תחילת התהליך" — managed from the admin "ספריית תכנים" screen.
 model LibraryItem {
-  id     String @id @default(cuid())
-  number Int
-  title  String
+  id       String         @id @default(cuid())
+  number   Int
+  title    String
+  folderId String?
+  folder   LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   videoFileUrl  String?
   videoFileName String?
@@ -201,9 +216,11 @@ model LibraryItem {
   audioFileName String?
   fileUrl       String?
   fileName      String?
-  driveFolderId String? // this item's own Drive folder — cached so the sync job doesn't have to look it up by name every run
+  driveFolderId String? // legacy: this item's own Drive folder, from before folders existed - items created afterward store their files directly in their container folder (the parent LibraryFolder's, or the top-level library folder) instead
 
   createdAt DateTime @default(now())
+
+  @@index([folderId])
 }
 
 // Fully private per-client journal — never exposed to the admin panel.
