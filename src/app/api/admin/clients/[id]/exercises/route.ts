@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
-import { findOrCreateExercisesFolder, findOrCreateExerciseFolder } from "@/lib/google-drive-oauth";
 
+// A new exercise starts with no Drive folder of its own - its files
+// upload straight into the client's shared "תרגולים" folder unless the
+// coach explicitly asks for a dedicated folder (see the
+// [exerciseId]/drive-folder route), so most exercises stay simple and
+// only the ones that actually need Drive-side file detection get one.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
@@ -16,23 +20,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const exercise = await prisma.exercise.create({
     data: { clientId, title, number: count + 1 },
   });
-
-  // Best-effort: create the exercise's own Drive folder (named exactly
-  // after its title) right away instead of waiting for the first upload,
-  // matching what already happens for a new session.
-  const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (client?.driveFolderId) {
-    try {
-      let exercisesFolderId = client.driveExercisesFolderId;
-      if (!exercisesFolderId) {
-        exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
-        await prisma.client.update({ where: { id: clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
-      }
-      await findOrCreateExerciseFolder(exercisesFolderId, exercise.title);
-    } catch (e) {
-      console.error("Failed to create Drive folder for new exercise", e);
-    }
-  }
 
   return NextResponse.json({ exercise });
 }

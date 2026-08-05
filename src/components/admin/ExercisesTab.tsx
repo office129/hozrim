@@ -15,6 +15,7 @@ type ExerciseData = {
   title: string;
   audioFileName: string | null;
   pdfFileName: string | null;
+  driveFolderId: string | null;
 };
 
 export function ExercisesTab({ clientId, exercises }: { clientId: string; exercises: ExerciseData[] }) {
@@ -54,6 +55,20 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
   const [error, setError] = useState("");
   const [pdfUploading, setPdfUploading] = useState(false);
   const [audioProgress, setAudioProgress] = useState<number | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  async function createDriveFolder() {
+    setError("");
+    setCreatingFolder(true);
+    try {
+      await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}/drive-folder`, "POST");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "יצירת התיקייה נכשלה");
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
 
   async function uploadAudio(file: File) {
     setError("");
@@ -213,6 +228,17 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
             </button>
           )}
         </div>
+        {exercise.driveFolderId ? (
+          <div className="text-[11px] text-muted-2">יש לתרגול זה תיקייה נפרדת בדרייב</div>
+        ) : (
+          <button
+            onClick={createDriveFolder}
+            disabled={creatingFolder}
+            className="text-[11px] text-brand underline cursor-pointer disabled:opacity-50"
+          >
+            {creatingFolder ? "יוצר/ת תיקייה…" : "יצירת תיקייה נפרדת בדרייב"}
+          </button>
+        )}
       </div>
 
       {error && <div className="text-danger text-xs">{error}</div>}

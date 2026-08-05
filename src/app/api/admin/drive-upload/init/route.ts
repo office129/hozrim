@@ -6,8 +6,6 @@ import {
   getConnection,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
-  findOrCreateExercisesFolder,
-  findOrCreateExerciseFolder,
   getOrCreateLibraryFolder,
   findOrCreateLibraryCategoryFolder,
 } from "@/lib/google-drive-oauth";
@@ -97,23 +95,14 @@ export async function POST(req: NextRequest) {
     if (!exercise || exercise.clientId !== clientId) {
       return NextResponse.json({ error: "התרגול לא נמצא" }, { status: 404 });
     }
-    if (!client.driveFolderId) {
-      return NextResponse.json({ error: "לא קושרה תיקיית דרייב ללקוח/ה זה/ו" }, { status: 400 });
-    }
-    // Each exercise gets its own folder (named after its title) inside
-    // "תרגולים" — same reasoning as a session's own folder: without one,
-    // Drive-side sync can't tell which exercise a manually-dropped file
-    // in the shared folder belongs to.
-    try {
-      let exercisesFolderId = client.driveExercisesFolderId;
-      if (!exercisesFolderId) {
-        exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
-        await prisma.client.update({ where: { id: clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
-      }
-      folderId = await findOrCreateExerciseFolder(exercisesFolderId, exercise.title);
-    } catch (e) {
-      console.error("Failed to resolve exercise Drive folder", e);
-      return NextResponse.json({ error: "לא ניתן להכין תיקיית תרגול בדרייב" }, { status: 502 });
+    // Most exercises have no folder of their own - their files just go
+    // straight into the client's shared "תרגולים" folder. Only an
+    // exercise the coach explicitly gave its own folder to (see the
+    // drive-folder route) uploads into that instead.
+    if (exercise.driveFolderId) {
+      folderId = exercise.driveFolderId;
+    } else {
+      folderId = client.driveExercisesFolderId;
     }
   } else if (!client.driveFolderId) {
     folderId = null;

@@ -9,7 +9,6 @@ import {
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
   findOrCreateExercisesFolder,
-  findOrCreateExerciseFolder,
   getOrCreateLibraryFolder,
   trashDriveFile,
 } from "@/lib/google-drive-oauth";
@@ -211,10 +210,11 @@ export async function removeExerciseIfFolderGone(exercise: {
 
 // Same idea as reconcileSessionFolder, for an exercise's own Drive folder
 // (audio/pdf slots) inside the client's shared "תרגולים" folder. Only
-// applies to an exercise that has its own driveFolderId - one created
-// before per-exercise folders existed has no way to tell a loose file in
-// the shared folder apart from another exercise's, so those are only
-// ever updated through the app.
+// applies to an exercise the coach explicitly gave its own folder to
+// (see the drive-folder route) - most exercises have none, and a loose
+// file sitting directly in the shared folder can't be reliably
+// attributed to one specific exercise among possibly several, so those
+// stay updated only through the app.
 export async function reconcileExerciseFolder(
   exercise: {
     id: string;
@@ -226,18 +226,8 @@ export async function reconcileExerciseFolder(
   },
   client: { driveFolderId: string | null; driveExercisesFolderId: string | null }
 ): Promise<void> {
-  if (!client.driveFolderId) return;
-
-  let exerciseFolderId = exercise.driveFolderId;
-  if (!exerciseFolderId) {
-    let exercisesFolderId = client.driveExercisesFolderId;
-    if (!exercisesFolderId) {
-      exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
-      await prisma.client.update({ where: { id: exercise.clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
-    }
-    exerciseFolderId = await findOrCreateExerciseFolder(exercisesFolderId, exercise.title);
-    await prisma.exercise.update({ where: { id: exercise.id }, data: { driveFolderId: exerciseFolderId } });
-  }
+  if (!client.driveFolderId || !exercise.driveFolderId) return;
+  const exerciseFolderId = exercise.driveFolderId;
 
   const files = await listFolderFiles(exerciseFolderId);
   const currentIds = new Set(files.map((f) => f.id));

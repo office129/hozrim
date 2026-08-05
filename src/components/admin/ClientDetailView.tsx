@@ -30,7 +30,13 @@ type ClientDetail = {
     summaryFiles: { id: string; url: string; fileName: string }[];
     viewedAt: string | null;
   }[];
-  exercises: { id: string; title: string; audioFileName: string | null; pdfFileName: string | null }[];
+  exercises: {
+    id: string;
+    title: string;
+    audioFileName: string | null;
+    pdfFileName: string | null;
+    driveFolderId: string | null;
+  }[];
   notes: { sessionId: string; number: number; title: string; text: string | null }[];
 };
 
