@@ -6,6 +6,8 @@ import {
   getConnection,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
+  findOrCreateExercisesFolder,
+  findOrCreateExerciseFolder,
   getOrCreateLibraryFolder,
   findOrCreateLibraryCategoryFolder,
 } from "@/lib/google-drive-oauth";
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
   const fileSize = typeof body?.fileSize === "number" ? body.fileSize : 0;
   const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
   const libraryItemId = typeof body?.libraryItemId === "string" ? body.libraryItemId : "";
+  const exerciseId = typeof body?.exerciseId === "string" ? body.exerciseId : "";
 
   if (!folder || !filename || !fileSize) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
@@ -48,6 +51,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
   if (folder === "library" && !libraryItemId) {
+    return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+  }
+  if (folder === "exercises" && !exerciseId) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
 
@@ -87,7 +93,28 @@ export async function POST(req: NextRequest) {
 
   let folderId: string | null;
   if (folder === "exercises") {
-    folderId = client.driveExercisesFolderId;
+    const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+    if (!exercise || exercise.clientId !== clientId) {
+      return NextResponse.json({ error: "התרגול לא נמצא" }, { status: 404 });
+    }
+    if (!client.driveFolderId) {
+      return NextResponse.json({ error: "לא קושרה תיקיית דרייב ללקוח/ה זה/ו" }, { status: 400 });
+    }
+    // Each exercise gets its own folder (named after its title) inside
+    // "תרגולים" — same reasoning as a session's own folder: without one,
+    // Drive-side sync can't tell which exercise a manually-dropped file
+    // in the shared folder belongs to.
+    try {
+      let exercisesFolderId = client.driveExercisesFolderId;
+      if (!exercisesFolderId) {
+        exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+        await prisma.client.update({ where: { id: clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
+      }
+      folderId = await findOrCreateExerciseFolder(exercisesFolderId, exercise.title);
+    } catch (e) {
+      console.error("Failed to resolve exercise Drive folder", e);
+      return NextResponse.json({ error: "לא ניתן להכין תיקיית תרגול בדרייב" }, { status: 502 });
+    }
   } else if (!client.driveFolderId) {
     folderId = null;
   } else {

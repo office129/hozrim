@@ -185,6 +185,7 @@ model Exercise {
   audioFileName String?
   pdfFileUrl    String?
   pdfFileName   String?
+  driveFolderId String? // this exercise's own Drive folder (inside the client's shared "תרגולים" folder) — lets Drive-side sync tell which exercise a manually-dropped file belongs to, same as a session's own folder. Null for an exercise created before this existed; its files just stay loose in the shared folder.
 
   createdAt DateTime @default(now())
 

@@ -109,8 +109,10 @@ export function GoogleDriveConnectionCard() {
         meetImport?: { skipped?: string; new?: number; matched?: number; ambiguous?: number; unmatched?: number; noFolder?: number };
         folderSync?: {
           sessionErrors: number;
+          exerciseErrors: number;
           libraryErrors: number;
           newSessionFolders: number;
+          newExerciseFolders: number;
           newLibraryFolders: number;
         };
       };
@@ -123,8 +125,10 @@ export function GoogleDriveConnectionCard() {
       const parts: string[] = [];
       if (result.meetImport?.matched) parts.push(`${result.meetImport.matched} הקלטות Meet יובאו`);
       if (result.folderSync?.newSessionFolders) parts.push(`${result.folderSync.newSessionFolders} תיקיות פגישה חדשות נוספו`);
+      if (result.folderSync?.newExerciseFolders) parts.push(`${result.folderSync.newExerciseFolders} תיקיות תרגול חדשות נוספו`);
       if (result.folderSync?.newLibraryFolders) parts.push(`${result.folderSync.newLibraryFolders} תיקיות ספריית תכנים חדשות נוספו`);
-      const errors = (result.folderSync?.sessionErrors || 0) + (result.folderSync?.libraryErrors || 0);
+      const errors =
+        (result.folderSync?.sessionErrors || 0) + (result.folderSync?.exerciseErrors || 0) + (result.folderSync?.libraryErrors || 0);
       setSyncResult(parts.length ? parts.join(", ") : "הסנכרון הושלם, לא נמצאו שינויים חדשים");
       if (errors) setSyncError(`שימו לב: ${errors} פריטים נכשלו בסנכרון`);
       router.refresh();

@@ -110,7 +110,8 @@ export async function tryUploadFileToDrive(
   clientId: string,
   folder: "main" | "exercises",
   onProgress?: (percentage: number) => void,
-  sessionId?: string
+  sessionId?: string,
+  exerciseId?: string
 ): Promise<{ url: string; fileName: string } | null> {
   return uploadViaInit(
     file,
@@ -121,6 +122,7 @@ export async function tryUploadFileToDrive(
       mimeType: file.type || "application/octet-stream",
       fileSize: file.size,
       sessionId,
+      exerciseId,
     },
     onProgress
   );

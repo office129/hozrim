@@ -321,6 +321,17 @@ export async function findOrCreateSessionFolder(meetingsFolderId: string, sessio
   return createFolder(sessionTitle, meetingsFolderId);
 }
 
+// Same idea as findOrCreateSessionFolder, one folder per exercise (named
+// after the exercise's own title) inside the client's shared "תרגולים"
+// folder — this is what lets Drive-side sync tell which exercise a
+// manually-dropped file belongs to, since the "תרגולים" folder itself
+// holds every exercise for that client together.
+export async function findOrCreateExerciseFolder(exercisesFolderId: string, exerciseTitle: string): Promise<string> {
+  const existing = await findSubfolder(exercisesFolderId, exerciseTitle);
+  if (existing) return existing;
+  return createFolder(exerciseTitle, exercisesFolderId);
+}
+
 // Same idea as findOrCreateSessionFolder, one folder per library category
 // (named after the category's own title) inside the general "ספריית
 // תכנים" folder — lessons inside a category store their files directly

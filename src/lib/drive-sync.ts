@@ -8,6 +8,8 @@ import {
   folderExists,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
+  findOrCreateExercisesFolder,
+  findOrCreateExerciseFolder,
   getOrCreateLibraryFolder,
   trashDriveFile,
 } from "@/lib/google-drive-oauth";
@@ -184,6 +186,150 @@ export async function reconcileSessionFolder(
       });
     }
   }
+}
+
+// Same idea as removeSessionIfFolderGone, for an exercise's own Drive
+// folder.
+export async function removeExerciseIfFolderGone(exercise: {
+  id: string;
+  clientId: string;
+  driveFolderId: string | null;
+}): Promise<boolean> {
+  if (!exercise.driveFolderId) return false;
+  if (await folderExists(exercise.driveFolderId)) return false;
+
+  await prisma.exercise.delete({ where: { id: exercise.id } });
+  const remaining = await prisma.exercise.findMany({
+    where: { clientId: exercise.clientId },
+    orderBy: { number: "asc" },
+  });
+  await prisma.$transaction(
+    remaining.map((e, i) => prisma.exercise.update({ where: { id: e.id }, data: { number: i + 1 } }))
+  );
+  return true;
+}
+
+// Same idea as reconcileSessionFolder, for an exercise's own Drive folder
+// (audio/pdf slots) inside the client's shared "תרגולים" folder. Only
+// applies to an exercise that has its own driveFolderId - one created
+// before per-exercise folders existed has no way to tell a loose file in
+// the shared folder apart from another exercise's, so those are only
+// ever updated through the app.
+export async function reconcileExerciseFolder(
+  exercise: {
+    id: string;
+    clientId: string;
+    title: string;
+    audioFileUrl: string | null;
+    pdfFileUrl: string | null;
+    driveFolderId: string | null;
+  },
+  client: { driveFolderId: string | null; driveExercisesFolderId: string | null }
+): Promise<void> {
+  if (!client.driveFolderId) return;
+
+  let exerciseFolderId = exercise.driveFolderId;
+  if (!exerciseFolderId) {
+    let exercisesFolderId = client.driveExercisesFolderId;
+    if (!exercisesFolderId) {
+      exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+      await prisma.client.update({ where: { id: exercise.clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
+    }
+    exerciseFolderId = await findOrCreateExerciseFolder(exercisesFolderId, exercise.title);
+    await prisma.exercise.update({ where: { id: exercise.id }, data: { driveFolderId: exerciseFolderId } });
+  }
+
+  const files = await listFolderFiles(exerciseFolderId);
+  const currentIds = new Set(files.map((f) => f.id));
+
+  const audioId = exercise.audioFileUrl ? driveFileId(exercise.audioFileUrl) : null;
+  const pdfId = exercise.pdfFileUrl ? driveFileId(exercise.pdfFileUrl) : null;
+
+  let hasAudio = !!audioId && currentIds.has(audioId);
+  let hasPdf = !!pdfId && currentIds.has(pdfId);
+  // Whether this exercise had no content at all before this pass - a
+  // manually-dropped file that fills its first slot notifies the client
+  // the same way the app's own upload flow does; a second file added
+  // afterward doesn't notify again.
+  const hadNoContentYet = !hasAudio && !hasPdf;
+
+  const data: { audioFileUrl?: null; audioFileName?: null; pdfFileUrl?: null; pdfFileName?: null } = {};
+  if (audioId && !hasAudio) {
+    data.audioFileUrl = null;
+    data.audioFileName = null;
+  }
+  if (pdfId && !hasPdf) {
+    data.pdfFileUrl = null;
+    data.pdfFileName = null;
+  }
+
+  const knownIds = new Set([audioId, pdfId].filter((x): x is string => !!x));
+  const newFiles = files.filter((f) => !knownIds.has(f.id));
+  const updates: Record<string, string> = {};
+
+  for (const file of newFiles) {
+    const url = `https://drive.google.com/file/d/${file.id}/view`;
+    if (!hasPdf && file.mimeType === "application/pdf") {
+      updates.pdfFileUrl = url;
+      updates.pdfFileName = file.name;
+      hasPdf = true;
+    } else if (!hasAudio && file.mimeType.startsWith("audio/")) {
+      updates.audioFileUrl = url;
+      updates.audioFileName = file.name;
+      hasAudio = true;
+    }
+  }
+
+  if (Object.keys(data).length || Object.keys(updates).length) {
+    await prisma.exercise.update({ where: { id: exercise.id }, data: { ...data, ...updates } });
+  }
+
+  if (hadNoContentYet && (updates.audioFileUrl || updates.pdfFileUrl)) {
+    await notifyClient(exercise.clientId, {
+      type: "exercise",
+      title: `תרגול חדש נוסף: ${exercise.title}`,
+      link: "/app/exercises",
+    });
+  }
+}
+
+// Same idea as discoverNewSessionFolders, for a client's "תרגולים"
+// folder - a subfolder added by hand directly there becomes a new
+// exercise (named after the folder), with its files reconciled right
+// away so anything already dropped in shows up without waiting for the
+// next run.
+export async function discoverNewExerciseFolders(client: {
+  id: string;
+  driveFolderId: string | null;
+  driveExercisesFolderId: string | null;
+}): Promise<number> {
+  if (!client.driveFolderId) return 0;
+
+  let exercisesFolderId = client.driveExercisesFolderId;
+  if (!exercisesFolderId) {
+    exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+    await prisma.client.update({ where: { id: client.id }, data: { driveExercisesFolderId: exercisesFolderId } });
+  }
+
+  const subfolders = await listSubfolders(exercisesFolderId);
+  const known = await prisma.exercise.findMany({
+    where: { clientId: client.id },
+    select: { driveFolderId: true },
+  });
+  const knownIds = new Set(known.map((e) => e.driveFolderId).filter((x): x is string => !!x));
+  const newFolders = subfolders.filter((f) => !knownIds.has(f.id));
+
+  for (const folder of newFolders) {
+    const count = await prisma.exercise.count({ where: { clientId: client.id } });
+    const exercise = await prisma.exercise.create({
+      data: { clientId: client.id, number: count + 1, title: folder.name, driveFolderId: folder.id },
+    });
+    await reconcileExerciseFolder(
+      { id: exercise.id, clientId: client.id, title: exercise.title, audioFileUrl: null, pdfFileUrl: null, driveFolderId: folder.id },
+      client
+    );
+  }
+  return newFolders.length;
 }
 
 // Same idea as reconcileSessionFolder, for a legacy library item's own

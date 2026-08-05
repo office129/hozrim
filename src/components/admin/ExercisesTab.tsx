@@ -59,7 +59,7 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     setError("");
     setAudioProgress(0);
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises", setAudioProgress);
+      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises", setAudioProgress, undefined, exercise.id);
       const direct = toDrive || (await tryUploadFileDirect(file, "audio", `clients/${clientId}`, setAudioProgress));
       if (direct) {
         await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
@@ -107,7 +107,7 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
     setError("");
     setPdfUploading(true);
     try {
-      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises");
+      const toDrive = await tryUploadFileToDrive(file, clientId, "exercises", undefined, undefined, exercise.id);
       if (toDrive) {
         await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", {
           pdfFileUrl: toDrive.url,

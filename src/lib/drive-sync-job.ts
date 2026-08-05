@@ -4,10 +4,13 @@ import { getConnection, listFolderFiles, listSubfolders } from "@/lib/google-dri
 import { extractEventName, importMeetRecordingForClient } from "@/lib/meet-import";
 import {
   reconcileSessionFolder,
+  reconcileExerciseFolder,
   reconcileLibraryItemFolder,
   discoverNewSessionFolders,
+  discoverNewExerciseFolders,
   discoverNewLibraryFolders,
   removeSessionIfFolderGone,
+  removeExerciseIfFolderGone,
   removeLibraryItemIfFolderGone,
   removeLibraryFolderIfDriveFolderGone,
 } from "@/lib/drive-sync";
@@ -174,7 +177,7 @@ async function runMeetImport(meetRecordingsFolderId: string) {
 
 async function runFolderSync() {
   const clients = await prisma.client.findMany({
-    select: { id: true, driveFolderId: true, driveMeetingsFolderId: true },
+    select: { id: true, driveFolderId: true, driveMeetingsFolderId: true, driveExercisesFolderId: true },
   });
 
   const sessions = await prisma.lessonSession.findMany({
@@ -191,6 +194,20 @@ async function runFolderSync() {
     } catch (e) {
       sessionErrors++;
       console.error("Failed to reconcile session Drive folder", session.id, e);
+    }
+  }
+
+  const exercises = await prisma.exercise.findMany({
+    include: { client: { select: { driveFolderId: true, driveExercisesFolderId: true } } },
+  });
+  let exerciseErrors = 0;
+  for (const { client, ...exercise } of exercises) {
+    try {
+      if (await removeExerciseIfFolderGone(exercise)) continue;
+      await reconcileExerciseFolder(exercise, client);
+    } catch (e) {
+      exerciseErrors++;
+      console.error("Failed to reconcile exercise Drive folder", exercise.id, e);
     }
   }
 
@@ -216,11 +233,17 @@ async function runFolderSync() {
   }
 
   let newSessionFolders = 0;
+  let newExerciseFolders = 0;
   for (const client of clients) {
     try {
       newSessionFolders += await discoverNewSessionFolders(client);
     } catch (e) {
       console.error("Failed to discover new session Drive folders", client.id, e);
+    }
+    try {
+      newExerciseFolders += await discoverNewExerciseFolders(client);
+    } catch (e) {
+      console.error("Failed to discover new exercise Drive folders", client.id, e);
     }
   }
 
@@ -234,9 +257,12 @@ async function runFolderSync() {
   return {
     sessionsChecked: sessions.length,
     sessionErrors,
+    exercisesChecked: exercises.length,
+    exerciseErrors,
     libraryItemsChecked: libraryItems.length,
     libraryErrors,
     newSessionFolders,
+    newExerciseFolders,
     newLibraryFolders,
   };
 }
@@ -310,7 +336,7 @@ export async function syncClientFolders(clientId: string): Promise<void> {
 
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { id: true, driveFolderId: true, driveMeetingsFolderId: true },
+    select: { id: true, driveFolderId: true, driveMeetingsFolderId: true, driveExercisesFolderId: true },
   });
   if (!client?.driveFolderId) return;
 
@@ -334,6 +360,25 @@ export async function syncClientFolders(clientId: string): Promise<void> {
     await discoverNewSessionFolders(client);
   } catch (e) {
     console.error("Failed to discover new session Drive folders", client.id, e);
+  }
+
+  const exercises = await prisma.exercise.findMany({ where: { clientId } });
+
+  await Promise.all(
+    exercises.map(async (exercise) => {
+      try {
+        if (await removeExerciseIfFolderGone(exercise)) return;
+        await reconcileExerciseFolder(exercise, client);
+      } catch (e) {
+        console.error("Failed to reconcile exercise Drive folder", exercise.id, e);
+      }
+    })
+  );
+
+  try {
+    await discoverNewExerciseFolders(client);
+  } catch (e) {
+    console.error("Failed to discover new exercise Drive folders", client.id, e);
   }
 }
 

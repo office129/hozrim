@@ -4,6 +4,7 @@ import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
 import { notifyClient } from "@/lib/notifications";
+import { trashDriveFile } from "@/lib/google-drive-oauth";
 
 export async function PATCH(
   req: NextRequest,
@@ -99,6 +100,16 @@ export async function DELETE(
 
   await deleteUploadByUrl(existing.audioFileUrl);
   await deleteUploadByUrl(existing.pdfFileUrl);
+  // The calls above only trash files the app already knew about — the
+  // exercise's own Drive folder (and anything dropped into it by hand)
+  // needs its own trash so it doesn't linger as orphaned clutter.
+  if (existing.driveFolderId) {
+    try {
+      await trashDriveFile(existing.driveFolderId);
+    } catch (e) {
+      console.error("Failed to trash exercise's Drive folder", e);
+    }
+  }
   await prisma.exercise.delete({ where: { id: exerciseId } });
 
   const remaining = await prisma.exercise.findMany({ where: { clientId }, orderBy: { number: "asc" } });
