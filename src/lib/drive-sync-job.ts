@@ -8,6 +8,7 @@ import {
   reconcileLibraryItemFolder,
   discoverNewSessionFolders,
   discoverNewExerciseFolders,
+  syncFlatExerciseFiles,
   discoverNewLibraryFolders,
   removeSessionIfFolderGone,
   removeExerciseIfFolderGone,
@@ -234,6 +235,7 @@ async function runFolderSync() {
 
   let newSessionFolders = 0;
   let newExerciseFolders = 0;
+  let newFlatExercises = 0;
   for (const client of clients) {
     try {
       newSessionFolders += await discoverNewSessionFolders(client);
@@ -244,6 +246,11 @@ async function runFolderSync() {
       newExerciseFolders += await discoverNewExerciseFolders(client);
     } catch (e) {
       console.error("Failed to discover new exercise Drive folders", client.id, e);
+    }
+    try {
+      newFlatExercises += await syncFlatExerciseFiles(client);
+    } catch (e) {
+      console.error("Failed to sync loose exercise files", client.id, e);
     }
   }
 
@@ -263,6 +270,7 @@ async function runFolderSync() {
     libraryErrors,
     newSessionFolders,
     newExerciseFolders,
+    newFlatExercises,
     newLibraryFolders,
   };
 }
@@ -379,6 +387,12 @@ export async function syncClientFolders(clientId: string): Promise<void> {
     await discoverNewExerciseFolders(client);
   } catch (e) {
     console.error("Failed to discover new exercise Drive folders", client.id, e);
+  }
+
+  try {
+    await syncFlatExerciseFiles(client);
+  } catch (e) {
+    console.error("Failed to sync loose exercise files", client.id, e);
   }
 }
 

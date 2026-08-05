@@ -209,12 +209,10 @@ export async function removeExerciseIfFolderGone(exercise: {
 }
 
 // Same idea as reconcileSessionFolder, for an exercise's own Drive folder
-// (audio/pdf slots) inside the client's shared "תרגולים" folder. Only
-// applies to an exercise the coach explicitly gave its own folder to
-// (see the drive-folder route) - most exercises have none, and a loose
-// file sitting directly in the shared folder can't be reliably
-// attributed to one specific exercise among possibly several, so those
-// stay updated only through the app.
+// (audio/pdf slots) - only applies to an exercise the coach explicitly
+// gave its own folder to (see the drive-folder route). An exercise with
+// no folder of its own is handled separately by syncFlatExerciseFiles,
+// since several of them can share the same loose "תרגולים" folder.
 export async function reconcileExerciseFolder(
   exercise: {
     id: string;
@@ -320,6 +318,84 @@ export async function discoverNewExerciseFolders(client: {
     );
   }
   return newFolders.length;
+}
+
+// The other half of "an exercise with no folder of its own" - a loose
+// file dropped straight into the shared "תרגולים" folder (not inside any
+// exercise's own subfolder) becomes its own new exercise, named after
+// the file, with that one file already attached. Unlike a folder full of
+// several files (which needs a name to group them under), one loose file
+// unambiguously stands on its own - there's nothing to attribute it to
+// except a brand new exercise. An already-known file (the app's own
+// upload, or one already picked up here before) that disappears from the
+// folder is cleared the same way any other Drive-synced slot would be.
+export async function syncFlatExerciseFiles(client: {
+  id: string;
+  driveFolderId: string | null;
+  driveExercisesFolderId: string | null;
+}): Promise<number> {
+  if (!client.driveFolderId) return 0;
+
+  let exercisesFolderId = client.driveExercisesFolderId;
+  if (!exercisesFolderId) {
+    exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+    await prisma.client.update({ where: { id: client.id }, data: { driveExercisesFolderId: exercisesFolderId } });
+  }
+
+  const [looseFiles, plainExercises] = await Promise.all([
+    listFolderFiles(exercisesFolderId),
+    prisma.exercise.findMany({ where: { clientId: client.id, driveFolderId: null } }),
+  ]);
+  const currentIds = new Set(looseFiles.map((f) => f.id));
+
+  for (const exercise of plainExercises) {
+    const audioId = exercise.audioFileUrl ? driveFileId(exercise.audioFileUrl) : null;
+    const pdfId = exercise.pdfFileUrl ? driveFileId(exercise.pdfFileUrl) : null;
+    const data: { audioFileUrl?: null; audioFileName?: null; pdfFileUrl?: null; pdfFileName?: null } = {};
+    if (audioId && !currentIds.has(audioId)) {
+      data.audioFileUrl = null;
+      data.audioFileName = null;
+    }
+    if (pdfId && !currentIds.has(pdfId)) {
+      data.pdfFileUrl = null;
+      data.pdfFileName = null;
+    }
+    if (Object.keys(data).length) {
+      await prisma.exercise.update({ where: { id: exercise.id }, data });
+    }
+  }
+
+  const knownIds = new Set(
+    plainExercises
+      .flatMap((e) => [e.audioFileUrl, e.pdfFileUrl])
+      .map((u) => (u ? driveFileId(u) : null))
+      .filter((x): x is string => !!x)
+  );
+  const newFiles = looseFiles.filter(
+    (f) => !knownIds.has(f.id) && (f.mimeType === "application/pdf" || f.mimeType.startsWith("audio/"))
+  );
+
+  for (const file of newFiles) {
+    const count = await prisma.exercise.count({ where: { clientId: client.id } });
+    const title = file.name.replace(/\.[^./]+$/, "") || file.name;
+    const url = `https://drive.google.com/file/d/${file.id}/view`;
+    const isPdf = file.mimeType === "application/pdf";
+    const exercise = await prisma.exercise.create({
+      data: {
+        clientId: client.id,
+        number: count + 1,
+        title,
+        ...(isPdf ? { pdfFileUrl: url, pdfFileName: file.name } : { audioFileUrl: url, audioFileName: file.name }),
+      },
+    });
+    await notifyClient(client.id, {
+      type: "exercise",
+      title: `תרגול חדש נוסף: ${exercise.title}`,
+      link: "/app/exercises",
+    });
+  }
+
+  return newFiles.length;
 }
 
 // Same idea as reconcileSessionFolder, for a legacy library item's own
