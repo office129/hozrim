@@ -38,10 +38,14 @@ export function ExercisesTab({ clientId, exercises }: { clientId: string; exerci
         <PromptModal
           title="תרגול חדש"
           placeholder="שם התרגול"
+          checkboxLabel="עם תיקייה נפרדת בדרייב"
           onCancel={() => setShowAdd(false)}
-          onConfirm={async (title) => {
+          onConfirm={async (title, withFolder) => {
             setShowAdd(false);
-            await apiSend(`/api/admin/clients/${clientId}/exercises`, "POST", { title });
+            const { exercise } = await apiSend(`/api/admin/clients/${clientId}/exercises`, "POST", { title });
+            if (withFolder) {
+              await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}/drive-folder`, "POST");
+            }
             router.refresh();
           }}
         />

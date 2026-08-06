@@ -7,20 +7,23 @@ import { Button } from "@/components/ui/Button";
 export function PromptModal({
   title,
   placeholder,
+  checkboxLabel,
   onCancel,
   onConfirm,
 }: {
   title: string;
   placeholder: string;
+  checkboxLabel?: string;
   onCancel: () => void;
-  onConfirm: (value: string) => void;
+  onConfirm: (value: string, checked: boolean) => void;
 }) {
   const [value, setValue] = useState("");
+  const [checked, setChecked] = useState(false);
 
   function confirm() {
     const trimmed = value.trim();
     if (!trimmed) return;
-    onConfirm(trimmed);
+    onConfirm(trimmed, checked);
   }
 
   return (
@@ -34,6 +37,12 @@ export function PromptModal({
           placeholder={placeholder}
           onKeyDown={(e) => e.key === "Enter" && confirm()}
         />
+        {checkboxLabel && (
+          <label className="flex items-center gap-2 mt-3.5 text-[13px] text-ink cursor-pointer">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="cursor-pointer" />
+            {checkboxLabel}
+          </label>
+        )}
         <div className="flex gap-2.5 mt-5">
           <Button variant="outline" className="flex-1" onClick={onCancel}>
             ביטול
