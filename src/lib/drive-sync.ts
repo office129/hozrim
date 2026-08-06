@@ -240,9 +240,13 @@ export async function discoverNewExerciseFolders(client: {
 
   for (const folder of newFolders) {
     const count = await prisma.exerciseFolder.count({ where: { clientId: client.id } });
-    await prisma.exerciseFolder.create({
+    const created = await prisma.exerciseFolder.create({
       data: { clientId: client.id, title: folder.name, order: count, driveFolderId: folder.id },
     });
+    // Sync its contents immediately - otherwise a file already sitting in
+    // a category folder created just now would only show up on the next
+    // sync run instead of right away.
+    await syncExerciseCategoryFiles(created);
   }
   return newFolders.length;
 }
