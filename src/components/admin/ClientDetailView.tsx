@@ -32,10 +32,23 @@ type ClientDetail = {
   }[];
   exercises: {
     id: string;
+    number: number;
     title: string;
     audioFileName: string | null;
     pdfFileName: string | null;
-    driveFolderId: string | null;
+    folderId: string | null;
+  }[];
+  exerciseFolders: {
+    id: string;
+    title: string;
+    items: {
+      id: string;
+      number: number;
+      title: string;
+      audioFileName: string | null;
+      pdfFileName: string | null;
+      folderId: string | null;
+    }[];
   }[];
   notes: { sessionId: string; number: number; title: string; text: string | null }[];
 };
@@ -233,7 +246,9 @@ export function ClientDetailView({ client }: { client: ClientDetail }) {
       </div>
 
       {tab === "sessions" && <SessionsTab clientId={client.id} sessions={client.sessions} />}
-      {tab === "exercises" && <ExercisesTab clientId={client.id} exercises={client.exercises} />}
+      {tab === "exercises" && (
+        <ExercisesTab clientId={client.id} exercises={client.exercises} folders={client.exerciseFolders} />
+      )}
       {tab === "notes" && <NotesTab notes={client.notes} />}
     </div>
   );

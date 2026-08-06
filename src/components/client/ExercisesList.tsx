@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, DocIcon, Waveform } from "@/components/icons";
+import { ChevronDown, DocIcon, FolderIcon, Waveform } from "@/components/icons";
 import { AudioEmbed, DocEmbed } from "@/components/client/MediaEmbed";
 import { driveEmbedUrl } from "@/lib/external-links";
 
@@ -15,12 +15,53 @@ type Exercise = {
   fileName: string | null;
 };
 
-export function ExercisesList({ exercises }: { exercises: Exercise[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+type ExerciseFolder = {
+  id: string;
+  title: string;
+  items: Exercise[];
+};
 
-  if (exercises.length === 0) {
+export function ExercisesList({ exercises, folders = [] }: { exercises: Exercise[]; folders?: ExerciseFolder[] }) {
+  if (exercises.length === 0 && folders.length === 0) {
     return <div className="text-center py-16 text-muted text-sm">עדיין לא נוספו תרגולים</div>;
   }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <ExerciseItems exercises={exercises} />
+      {folders.map((folder) => (
+        <ExerciseFolderSection key={folder.id} folder={folder} />
+      ))}
+    </div>
+  );
+}
+
+function ExerciseFolderSection({ folder }: { folder: ExerciseFolder }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full cursor-pointer flex items-center gap-3.5 px-3.5 py-3 text-right"
+      >
+        <div className="w-10 h-10 rounded-xl bg-brand-soft shrink-0 flex items-center justify-center">
+          <FolderIcon />
+        </div>
+        <div className="flex-1 min-w-0 text-sm font-semibold text-ink">{folder.title}</div>
+        <ChevronDown open={open} />
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5">
+          <ExerciseItems exercises={folder.items} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExerciseItems({ exercises }: { exercises: Exercise[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-2.5">

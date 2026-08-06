@@ -187,105 +187,36 @@ export async function reconcileSessionFolder(
   }
 }
 
-// Same idea as removeSessionIfFolderGone, for an exercise's own Drive
-// folder.
-export async function removeExerciseIfFolderGone(exercise: {
+// Same idea as removeLibraryFolderIfDriveFolderGone, for an exercise
+// category - if its Drive folder was deleted/trashed by hand, the
+// exercises inside it lost their files along with it, so they're
+// removed the same way.
+export async function removeExerciseFolderIfDriveFolderGone(folder: {
   id: string;
   clientId: string;
   driveFolderId: string | null;
 }): Promise<boolean> {
-  if (!exercise.driveFolderId) return false;
-  if (await folderExists(exercise.driveFolderId)) return false;
+  if (!folder.driveFolderId) return false;
+  if (await folderExists(folder.driveFolderId)) return false;
 
-  await prisma.exercise.delete({ where: { id: exercise.id } });
-  const remaining = await prisma.exercise.findMany({
-    where: { clientId: exercise.clientId },
-    orderBy: { number: "asc" },
-  });
+  const items = await prisma.exercise.findMany({ where: { folderId: folder.id } });
+  for (const item of items) {
+    await deleteUploadByUrl(item.audioFileUrl);
+    await deleteUploadByUrl(item.pdfFileUrl);
+  }
+  await prisma.exercise.deleteMany({ where: { folderId: folder.id } });
+  await prisma.exerciseFolder.delete({ where: { id: folder.id } });
+  const remaining = await prisma.exerciseFolder.findMany({ where: { clientId: folder.clientId }, orderBy: { order: "asc" } });
   await prisma.$transaction(
-    remaining.map((e, i) => prisma.exercise.update({ where: { id: e.id }, data: { number: i + 1 } }))
+    remaining.map((f, i) => prisma.exerciseFolder.update({ where: { id: f.id }, data: { order: i } }))
   );
   return true;
 }
 
-// Same idea as reconcileSessionFolder, for an exercise's own Drive folder
-// (audio/pdf slots) - only applies to an exercise the coach explicitly
-// gave its own folder to (see the drive-folder route). An exercise with
-// no folder of its own is handled separately by syncFlatExerciseFiles,
-// since several of them can share the same loose "תרגולים" folder.
-export async function reconcileExerciseFolder(
-  exercise: {
-    id: string;
-    clientId: string;
-    title: string;
-    audioFileUrl: string | null;
-    pdfFileUrl: string | null;
-    driveFolderId: string | null;
-  },
-  client: { driveFolderId: string | null; driveExercisesFolderId: string | null }
-): Promise<void> {
-  if (!client.driveFolderId || !exercise.driveFolderId) return;
-  const exerciseFolderId = exercise.driveFolderId;
-
-  const files = await listFolderFiles(exerciseFolderId);
-  const currentIds = new Set(files.map((f) => f.id));
-
-  const audioId = exercise.audioFileUrl ? driveFileId(exercise.audioFileUrl) : null;
-  const pdfId = exercise.pdfFileUrl ? driveFileId(exercise.pdfFileUrl) : null;
-
-  let hasAudio = !!audioId && currentIds.has(audioId);
-  let hasPdf = !!pdfId && currentIds.has(pdfId);
-  // Whether this exercise had no content at all before this pass - a
-  // manually-dropped file that fills its first slot notifies the client
-  // the same way the app's own upload flow does; a second file added
-  // afterward doesn't notify again.
-  const hadNoContentYet = !hasAudio && !hasPdf;
-
-  const data: { audioFileUrl?: null; audioFileName?: null; pdfFileUrl?: null; pdfFileName?: null } = {};
-  if (audioId && !hasAudio) {
-    data.audioFileUrl = null;
-    data.audioFileName = null;
-  }
-  if (pdfId && !hasPdf) {
-    data.pdfFileUrl = null;
-    data.pdfFileName = null;
-  }
-
-  const knownIds = new Set([audioId, pdfId].filter((x): x is string => !!x));
-  const newFiles = files.filter((f) => !knownIds.has(f.id));
-  const updates: Record<string, string> = {};
-
-  for (const file of newFiles) {
-    const url = `https://drive.google.com/file/d/${file.id}/view`;
-    if (!hasPdf && file.mimeType === "application/pdf") {
-      updates.pdfFileUrl = url;
-      updates.pdfFileName = file.name;
-      hasPdf = true;
-    } else if (!hasAudio && file.mimeType.startsWith("audio/")) {
-      updates.audioFileUrl = url;
-      updates.audioFileName = file.name;
-      hasAudio = true;
-    }
-  }
-
-  if (Object.keys(data).length || Object.keys(updates).length) {
-    await prisma.exercise.update({ where: { id: exercise.id }, data: { ...data, ...updates } });
-  }
-
-  if (hadNoContentYet && (updates.audioFileUrl || updates.pdfFileUrl)) {
-    await notifyClient(exercise.clientId, {
-      type: "exercise",
-      title: `תרגול חדש נוסף: ${exercise.title}`,
-      link: "/app/exercises",
-    });
-  }
-}
-
-// Same idea as discoverNewSessionFolders, for a client's "תרגולים"
+// Same idea as discoverNewLibraryFolders, for a client's "תרגולים"
 // folder - a subfolder added by hand directly there becomes a new
-// exercise (named after the folder), with its files reconciled right
-// away so anything already dropped in shows up without waiting for the
-// next run.
+// exercise category (not a new exercise itself - see
+// syncExerciseFilesInFolder for what happens to files inside it).
 export async function discoverNewExerciseFolders(client: {
   id: string;
   driveFolderId: string | null;
@@ -300,55 +231,38 @@ export async function discoverNewExerciseFolders(client: {
   }
 
   const subfolders = await listSubfolders(exercisesFolderId);
-  const known = await prisma.exercise.findMany({
+  const known = await prisma.exerciseFolder.findMany({
     where: { clientId: client.id },
     select: { driveFolderId: true },
   });
-  const knownIds = new Set(known.map((e) => e.driveFolderId).filter((x): x is string => !!x));
+  const knownIds = new Set(known.map((f) => f.driveFolderId).filter((x): x is string => !!x));
   const newFolders = subfolders.filter((f) => !knownIds.has(f.id));
 
   for (const folder of newFolders) {
-    const count = await prisma.exercise.count({ where: { clientId: client.id } });
-    const exercise = await prisma.exercise.create({
-      data: { clientId: client.id, number: count + 1, title: folder.name, driveFolderId: folder.id },
+    const count = await prisma.exerciseFolder.count({ where: { clientId: client.id } });
+    await prisma.exerciseFolder.create({
+      data: { clientId: client.id, title: folder.name, order: count, driveFolderId: folder.id },
     });
-    await reconcileExerciseFolder(
-      { id: exercise.id, clientId: client.id, title: exercise.title, audioFileUrl: null, pdfFileUrl: null, driveFolderId: folder.id },
-      client
-    );
   }
   return newFolders.length;
 }
 
-// The other half of "an exercise with no folder of its own" - a loose
-// file dropped straight into the shared "תרגולים" folder (not inside any
-// exercise's own subfolder) becomes its own new exercise, named after
-// the file, with that one file already attached. Unlike a folder full of
-// several files (which needs a name to group them under), one loose file
-// unambiguously stands on its own - there's nothing to attribute it to
-// except a brand new exercise. An already-known file (the app's own
-// upload, or one already picked up here before) that disappears from the
-// folder is cleared the same way any other Drive-synced slot would be.
-export async function syncFlatExerciseFiles(client: {
-  id: string;
-  driveFolderId: string | null;
-  driveExercisesFolderId: string | null;
-}): Promise<number> {
-  if (!client.driveFolderId) return 0;
-
-  let exercisesFolderId = client.driveExercisesFolderId;
-  if (!exercisesFolderId) {
-    exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
-    await prisma.client.update({ where: { id: client.id }, data: { driveExercisesFolderId: exercisesFolderId } });
-  }
-
-  const [looseFiles, plainExercises] = await Promise.all([
-    listFolderFiles(exercisesFolderId),
-    prisma.exercise.findMany({ where: { clientId: client.id, driveFolderId: null } }),
+// Reconciles loose files sitting directly in one Drive folder against
+// the app-side exercises grouped under it (folderId null for the
+// top-level "תרגולים" folder itself, or a specific category's id) - each
+// loose file is its own exercise, since (unlike a session or library
+// item) an exercise has no further-nested folder of its own to
+// disambiguate multiple files by. A new file becomes a new exercise
+// named after it; a known file that disappears clears that exercise's
+// slot the same way any other Drive-synced slot would.
+async function syncExerciseFilesInFolder(driveFolderId: string, clientId: string, folderId: string | null): Promise<number> {
+  const [looseFiles, exercises] = await Promise.all([
+    listFolderFiles(driveFolderId),
+    prisma.exercise.findMany({ where: { clientId, folderId } }),
   ]);
   const currentIds = new Set(looseFiles.map((f) => f.id));
 
-  for (const exercise of plainExercises) {
+  for (const exercise of exercises) {
     const audioId = exercise.audioFileUrl ? driveFileId(exercise.audioFileUrl) : null;
     const pdfId = exercise.pdfFileUrl ? driveFileId(exercise.pdfFileUrl) : null;
     const data: { audioFileUrl?: null; audioFileName?: null; pdfFileUrl?: null; pdfFileName?: null } = {};
@@ -366,7 +280,7 @@ export async function syncFlatExerciseFiles(client: {
   }
 
   const knownIds = new Set(
-    plainExercises
+    exercises
       .flatMap((e) => [e.audioFileUrl, e.pdfFileUrl])
       .map((u) => (u ? driveFileId(u) : null))
       .filter((x): x is string => !!x)
@@ -376,19 +290,20 @@ export async function syncFlatExerciseFiles(client: {
   );
 
   for (const file of newFiles) {
-    const count = await prisma.exercise.count({ where: { clientId: client.id } });
+    const count = await prisma.exercise.count({ where: { clientId, folderId } });
     const title = file.name.replace(/\.[^./]+$/, "") || file.name;
     const url = `https://drive.google.com/file/d/${file.id}/view`;
     const isPdf = file.mimeType === "application/pdf";
     const exercise = await prisma.exercise.create({
       data: {
-        clientId: client.id,
+        clientId,
+        folderId,
         number: count + 1,
         title,
         ...(isPdf ? { pdfFileUrl: url, pdfFileName: file.name } : { audioFileUrl: url, audioFileName: file.name }),
       },
     });
-    await notifyClient(client.id, {
+    await notifyClient(clientId, {
       type: "exercise",
       title: `תרגול חדש נוסף: ${exercise.title}`,
       link: "/app/exercises",
@@ -396,6 +311,33 @@ export async function syncFlatExerciseFiles(client: {
   }
 
   return newFiles.length;
+}
+
+// The top-level half of syncExerciseFilesInFolder - a loose file dropped
+// straight into the shared "תרגולים" folder itself (not inside any
+// category) becomes a plain exercise, no folder.
+export async function syncFlatExerciseFiles(client: {
+  id: string;
+  driveFolderId: string | null;
+  driveExercisesFolderId: string | null;
+}): Promise<number> {
+  if (!client.driveFolderId) return 0;
+
+  let exercisesFolderId = client.driveExercisesFolderId;
+  if (!exercisesFolderId) {
+    exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+    await prisma.client.update({ where: { id: client.id }, data: { driveExercisesFolderId: exercisesFolderId } });
+  }
+
+  return syncExerciseFilesInFolder(exercisesFolderId, client.id, null);
+}
+
+// Same idea as syncFlatExerciseFiles, for one exercise category's own
+// Drive folder - a loose file dropped into it becomes a new exercise
+// inside that category.
+export async function syncExerciseCategoryFiles(folder: { id: string; clientId: string; driveFolderId: string | null }): Promise<number> {
+  if (!folder.driveFolderId) return 0;
+  return syncExerciseFilesInFolder(folder.driveFolderId, folder.clientId, folder.id);
 }
 
 // Same idea as reconcileSessionFolder, for a legacy library item's own

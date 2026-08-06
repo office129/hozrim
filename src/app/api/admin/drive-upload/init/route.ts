@@ -6,6 +6,8 @@ import {
   getConnection,
   findOrCreateMeetingsFolder,
   findOrCreateSessionFolder,
+  findOrCreateExercisesFolder,
+  findOrCreateExerciseCategoryFolder,
   getOrCreateLibraryFolder,
   findOrCreateLibraryCategoryFolder,
 } from "@/lib/google-drive-oauth";
@@ -91,18 +93,32 @@ export async function POST(req: NextRequest) {
 
   let folderId: string | null;
   if (folder === "exercises") {
-    const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+    const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId }, include: { folder: true } });
     if (!exercise || exercise.clientId !== clientId) {
       return NextResponse.json({ error: "התרגול לא נמצא" }, { status: 404 });
     }
-    // Most exercises have no folder of their own - their files just go
-    // straight into the client's shared "תרגולים" folder. Only an
-    // exercise the coach explicitly gave its own folder to (see the
-    // drive-folder route) uploads into that instead.
-    if (exercise.driveFolderId) {
-      folderId = exercise.driveFolderId;
-    } else {
-      folderId = client.driveExercisesFolderId;
+    // An exercise inside a category uploads into that category's Drive
+    // folder (lazily created if needed); one with no category uploads
+    // straight into the client's shared "תרגולים" folder.
+    try {
+      let exercisesFolderId = client.driveExercisesFolderId;
+      if (client.driveFolderId && !exercisesFolderId) {
+        exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+        await prisma.client.update({ where: { id: clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
+      }
+      if (exercise.folder) {
+        folderId =
+          exercise.folder.driveFolderId ||
+          (exercisesFolderId ? await findOrCreateExerciseCategoryFolder(exercisesFolderId, exercise.folder.title) : null);
+        if (folderId && !exercise.folder.driveFolderId) {
+          await prisma.exerciseFolder.update({ where: { id: exercise.folder.id }, data: { driveFolderId: folderId } });
+        }
+      } else {
+        folderId = exercisesFolderId;
+      }
+    } catch (e) {
+      console.error("Failed to resolve exercise category Drive folder", e);
+      return NextResponse.json({ error: "לא ניתן להכין תיקיית תרגול בדרייב" }, { status: 502 });
     }
   } else if (!client.driveFolderId) {
     folderId = null;

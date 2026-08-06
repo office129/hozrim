@@ -6,26 +6,46 @@ import { apiSend, apiUpload, ApiError } from "@/lib/api-client";
 import { tryUploadFileDirect } from "@/lib/blob-upload-client";
 import { tryUploadFileToDrive } from "@/lib/drive-upload-client";
 import { MAX_DIRECT_UPLOAD_BYTES } from "@/lib/upload-limits";
+import { ChevronDown, FolderIcon } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
 import { UploadOrLinkControl } from "./UploadOrLinkControl";
 
+const NO_FOLDER = "__none__";
+
 type ExerciseData = {
   id: string;
+  number: number;
   title: string;
   audioFileName: string | null;
   pdfFileName: string | null;
-  driveFolderId: string | null;
+  folderId: string | null;
 };
 
-export function ExercisesTab({ clientId, exercises }: { clientId: string; exercises: ExerciseData[] }) {
+type ExerciseFolderData = {
+  id: string;
+  title: string;
+  items: ExerciseData[];
+};
+
+export function ExercisesTab({
+  clientId,
+  exercises,
+  folders,
+}: {
+  clientId: string;
+  exercises: ExerciseData[];
+  folders: ExerciseFolderData[];
+}) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddFolder, setShowAddFolder] = useState(false);
+  const folderOptions = folders.map((f) => ({ id: f.id, title: f.title }));
 
   return (
     <div className="flex flex-col gap-2.5">
       {exercises.map((ex) => (
-        <ExerciseRow key={ex.id} clientId={clientId} exercise={ex} />
+        <ExerciseRow key={ex.id} clientId={clientId} exercise={ex} folders={folderOptions} />
       ))}
       <button
         className="mt-1.5 p-3 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[13px] cursor-pointer"
@@ -34,18 +54,39 @@ export function ExercisesTab({ clientId, exercises }: { clientId: string; exerci
         + הוספת תרגול חדש
       </button>
 
+      <div className="mt-4 flex flex-col gap-2.5">
+        <div className="font-heading font-bold text-base text-ink">תיקיות</div>
+        {folders.map((folder) => (
+          <ExerciseFolderSection key={folder.id} clientId={clientId} folder={folder} folders={folderOptions} />
+        ))}
+        <button
+          className="p-3 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[13px] cursor-pointer"
+          onClick={() => setShowAddFolder(true)}
+        >
+          + הוספת תיקייה
+        </button>
+      </div>
+
       {showAdd && (
         <PromptModal
           title="תרגול חדש"
           placeholder="שם התרגול"
-          checkboxLabel="עם תיקייה נפרדת בדרייב"
           onCancel={() => setShowAdd(false)}
-          onConfirm={async (title, withFolder) => {
+          onConfirm={async (title) => {
             setShowAdd(false);
-            const { exercise } = await apiSend(`/api/admin/clients/${clientId}/exercises`, "POST", { title });
-            if (withFolder) {
-              await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}/drive-folder`, "POST");
-            }
+            await apiSend(`/api/admin/clients/${clientId}/exercises`, "POST", { title });
+            router.refresh();
+          }}
+        />
+      )}
+      {showAddFolder && (
+        <PromptModal
+          title="תיקייה חדשה"
+          placeholder="שם התיקייה"
+          onCancel={() => setShowAddFolder(false)}
+          onConfirm={async (title) => {
+            setShowAddFolder(false);
+            await apiSend(`/api/admin/clients/${clientId}/exercises/folders`, "POST", { title });
             router.refresh();
           }}
         />
@@ -54,24 +95,90 @@ export function ExercisesTab({ clientId, exercises }: { clientId: string; exerci
   );
 }
 
-function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: ExerciseData }) {
+function ExerciseFolderSection({
+  clientId,
+  folder,
+  folders,
+}: {
+  clientId: string;
+  folder: ExerciseFolderData;
+  folders: { id: string; title: string }[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+
+  async function deleteFolder() {
+    if (!confirm(`למחוק את התיקייה "${folder.title}"? כל התרגולים שבתוכה יימחקו גם הם.`)) return;
+    await apiSend(`/api/admin/clients/${clientId}/exercises/folders/${folder.id}`, "DELETE");
+    router.refresh();
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-right">
+          <FolderIcon />
+          <span className="text-[13px] text-muted shrink-0">({folder.items.length})</span>
+        </button>
+        <div className="flex-1 min-w-0">
+          <InlineEditableText
+            value={folder.title}
+            onSave={async (next) => {
+              await apiSend(`/api/admin/clients/${clientId}/exercises/folders/${folder.id}`, "PATCH", { title: next });
+              router.refresh();
+            }}
+            onDelete={deleteFolder}
+          />
+        </div>
+        <ChevronDown open={open} />
+      </div>
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-2.5">
+          {folder.items.map((ex) => (
+            <ExerciseRow key={ex.id} clientId={clientId} exercise={ex} folders={folders} />
+          ))}
+          <button
+            className="p-2.5 rounded-xl border border-dashed border-[oklch(0.7_0.03_150)] text-muted text-[12.5px] cursor-pointer"
+            onClick={() => setShowAdd(true)}
+          >
+            + הוספת תרגול לתיקייה
+          </button>
+        </div>
+      )}
+      {showAdd && (
+        <PromptModal
+          title="תרגול חדש"
+          placeholder="שם התרגול"
+          onCancel={() => setShowAdd(false)}
+          onConfirm={async (title) => {
+            setShowAdd(false);
+            await apiSend(`/api/admin/clients/${clientId}/exercises`, "POST", { title, folderId: folder.id });
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExerciseRow({
+  clientId,
+  exercise,
+  folders,
+}: {
+  clientId: string;
+  exercise: ExerciseData;
+  folders: { id: string; title: string }[];
+}) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [pdfUploading, setPdfUploading] = useState(false);
   const [audioProgress, setAudioProgress] = useState<number | null>(null);
-  const [creatingFolder, setCreatingFolder] = useState(false);
 
-  async function createDriveFolder() {
-    setError("");
-    setCreatingFolder(true);
-    try {
-      await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}/drive-folder`, "POST");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "יצירת התיקייה נכשלה");
-    } finally {
-      setCreatingFolder(false);
-    }
+  async function moveToFolder(folderId: string | null) {
+    await apiSend(`/api/admin/clients/${clientId}/exercises/${exercise.id}`, "PATCH", { folderId });
+    router.refresh();
   }
 
   async function uploadAudio(file: File) {
@@ -232,16 +339,19 @@ function ExerciseRow({ clientId, exercise }: { clientId: string; exercise: Exerc
             </button>
           )}
         </div>
-        {exercise.driveFolderId ? (
-          <div className="text-[11px] text-muted-2">יש לתרגול זה תיקייה נפרדת בדרייב</div>
-        ) : (
-          <button
-            onClick={createDriveFolder}
-            disabled={creatingFolder}
-            className="text-[11px] text-brand underline cursor-pointer disabled:opacity-50"
+        {folders.length > 0 && (
+          <select
+            value={exercise.folderId ?? NO_FOLDER}
+            onChange={(e) => moveToFolder(e.target.value === NO_FOLDER ? null : e.target.value)}
+            className="text-[11.5px] text-muted bg-tile rounded-[9px] px-2.5 py-1.5 border-none outline-none cursor-pointer"
           >
-            {creatingFolder ? "יוצר/ת תיקייה…" : "יצירת תיקייה נפרדת בדרייב"}
-          </button>
+            <option value={NO_FOLDER}>ללא תיקייה</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 

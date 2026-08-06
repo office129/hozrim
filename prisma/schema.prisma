@@ -37,6 +37,7 @@ model Client {
 
   sessions               LessonSession[]
   exercises              Exercise[]
+  exerciseFolders        ExerciseFolder[]
   journal                JournalEntry[]
   personalUploadGroups   PersonalUploadGroup[]
   resetTokens            PasswordResetToken[]
@@ -173,23 +174,43 @@ model SessionSummaryFile {
 }
 
 // Per-client practice/exercise items — the "תרגולים" tab.
+// An optional grouping folder inside a client's "תרגולים" (e.g. a
+// module made of several exercises) - same idea as LibraryFolder,
+// mirrored as a real Drive subfolder. Exercises inside it store their
+// files directly in this folder rather than each getting their own
+// nested subfolder.
+model ExerciseFolder {
+  id            String     @id @default(cuid())
+  clientId      String
+  client        Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  order         Int
+  title         String
+  driveFolderId String?
+  createdAt     DateTime   @default(now())
+  items         Exercise[]
+
+  @@index([clientId, order])
+}
+
 model Exercise {
-  id       String  @id @default(cuid())
+  id       String          @id @default(cuid())
   clientId String
-  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   number   Int
   title    String
   subtitle String?
+  folderId String?
+  folder   ExerciseFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   audioFileUrl  String?
   audioFileName String?
   pdfFileUrl    String?
   pdfFileName   String?
-  driveFolderId String? // this exercise's own Drive folder (inside the client's shared "תרגולים" folder) — lets Drive-side sync tell which exercise a manually-dropped file belongs to, same as a session's own folder. Null for an exercise created before this existed; its files just stay loose in the shared folder.
 
   createdAt DateTime @default(now())
 
   @@index([clientId, number])
+  @@index([folderId])
 }
 
 // An optional grouping folder inside "ספריית תכנים" (e.g. "מודול 1") -

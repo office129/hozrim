@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 
-// A new exercise starts with no Drive folder of its own - its files
-// upload straight into the client's shared "תרגולים" folder unless the
-// coach explicitly asks for a dedicated folder (see the
-// [exerciseId]/drive-folder route), so most exercises stay simple and
-// only the ones that actually need Drive-side file detection get one.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
@@ -16,9 +11,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const title = typeof body?.title === "string" ? body.title.trim() : "";
   if (!title) return NextResponse.json({ error: "נא להזין שם לתרגול" }, { status: 400 });
 
-  const count = await prisma.exercise.count({ where: { clientId } });
+  const folderId = typeof body?.folderId === "string" && body.folderId ? body.folderId : null;
+  if (folderId) {
+    const folder = await prisma.exerciseFolder.findUnique({ where: { id: folderId } });
+    if (!folder || folder.clientId !== clientId) return NextResponse.json({ error: "התיקייה לא נמצאה" }, { status: 404 });
+  }
+
+  const count = await prisma.exercise.count({ where: { clientId, folderId } });
   const exercise = await prisma.exercise.create({
-    data: { clientId, title, number: count + 1 },
+    data: { clientId, title, number: count + 1, folderId },
   });
 
   return NextResponse.json({ exercise });

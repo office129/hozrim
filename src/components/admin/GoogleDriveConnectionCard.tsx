@@ -114,6 +114,7 @@ export function GoogleDriveConnectionCard() {
           newSessionFolders: number;
           newExerciseFolders: number;
           newFlatExercises: number;
+          newCategoryExercises: number;
           newLibraryFolders: number;
         };
       };
@@ -127,7 +128,8 @@ export function GoogleDriveConnectionCard() {
       if (result.meetImport?.matched) parts.push(`${result.meetImport.matched} הקלטות Meet יובאו`);
       if (result.folderSync?.newSessionFolders) parts.push(`${result.folderSync.newSessionFolders} תיקיות פגישה חדשות נוספו`);
       if (result.folderSync?.newExerciseFolders) parts.push(`${result.folderSync.newExerciseFolders} תיקיות תרגול חדשות נוספו`);
-      if (result.folderSync?.newFlatExercises) parts.push(`${result.folderSync.newFlatExercises} תרגולים חדשים נוספו מקבצים בדרייב`);
+      const newExercisesTotal = (result.folderSync?.newFlatExercises || 0) + (result.folderSync?.newCategoryExercises || 0);
+      if (newExercisesTotal) parts.push(`${newExercisesTotal} תרגולים חדשים נוספו מקבצים בדרייב`);
       if (result.folderSync?.newLibraryFolders) parts.push(`${result.folderSync.newLibraryFolders} תיקיות ספריית תכנים חדשות נוספו`);
       const errors =
         (result.folderSync?.sessionErrors || 0) + (result.folderSync?.exerciseErrors || 0) + (result.folderSync?.libraryErrors || 0);

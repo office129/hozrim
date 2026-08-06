@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
-import { isHttpUrl } from "@/lib/external-links";
+import { isHttpUrl, driveFileId } from "@/lib/external-links";
 import { notifyClient } from "@/lib/notifications";
-import { trashDriveFile } from "@/lib/google-drive-oauth";
+import { findOrCreateExercisesFolder, findOrCreateExerciseCategoryFolder, moveDriveFile } from "@/lib/google-drive-oauth";
+
+async function renumberContainer(clientId: string, folderId: string | null) {
+  const remaining = await prisma.exercise.findMany({ where: { clientId, folderId }, orderBy: { number: "asc" } });
+  await prisma.$transaction(
+    remaining.map((e, i) => prisma.exercise.update({ where: { id: e.id }, data: { number: i + 1 } }))
+  );
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -21,6 +28,8 @@ export async function PATCH(
     audioFileName?: string | null;
     pdfFileUrl?: string | null;
     pdfFileName?: string | null;
+    folderId?: string | null;
+    number?: number;
   } = {};
   if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
 
@@ -70,10 +79,68 @@ export async function PATCH(
   // too" doesn't notify again.
   const hadNoContentYet = !!existing && !existing.audioFileUrl && !existing.pdfFileUrl;
 
+  // Moving an exercise into a different category (or back to the top
+  // level, via folderId: null) - it goes to the end of its new container
+  // and its actual Drive files (if any) follow it there, same as a
+  // library item moving between categories.
+  let moveFrom: { folderId: string | null } | null = null;
+  if ("folderId" in (body ?? {})) {
+    const targetFolderId = typeof body.folderId === "string" && body.folderId ? body.folderId : null;
+    const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId }, include: { folder: true } });
+    if (!exercise || exercise.clientId !== clientId) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
+
+    const targetFolder = targetFolderId ? await prisma.exerciseFolder.findUnique({ where: { id: targetFolderId } }) : null;
+    if (targetFolderId && (!targetFolder || targetFolder.clientId !== clientId)) {
+      return NextResponse.json({ error: "התיקייה לא נמצאה" }, { status: 404 });
+    }
+
+    if (targetFolderId !== exercise.folderId) {
+      const count = await prisma.exercise.count({ where: { clientId, folderId: targetFolderId } });
+      data.folderId = targetFolderId;
+      data.number = count + 1;
+      moveFrom = { folderId: exercise.folderId };
+
+      try {
+        const client = await prisma.client.findUnique({ where: { id: clientId } });
+        if (client?.driveFolderId) {
+          let exercisesFolderId = client.driveExercisesFolderId;
+          if (!exercisesFolderId) {
+            exercisesFolderId = await findOrCreateExercisesFolder(client.driveFolderId);
+            await prisma.client.update({ where: { id: clientId }, data: { driveExercisesFolderId: exercisesFolderId } });
+          }
+          const fromFolderId = exercise.folder?.driveFolderId ?? exercisesFolderId;
+
+          let toFolderId = exercisesFolderId;
+          if (targetFolder) {
+            toFolderId =
+              targetFolder.driveFolderId || (await findOrCreateExerciseCategoryFolder(exercisesFolderId, targetFolder.title));
+            if (!targetFolder.driveFolderId) {
+              await prisma.exerciseFolder.update({ where: { id: targetFolder.id }, data: { driveFolderId: toFolderId } });
+            }
+          }
+
+          if (fromFolderId !== toFolderId) {
+            for (const url of [exercise.audioFileUrl, exercise.pdfFileUrl]) {
+              const fileId = url ? driveFileId(url) : null;
+              if (fileId) await moveDriveFile(fileId, fromFolderId, toFolderId);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to move exercise's Drive files between folders", e);
+      }
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "אין מה לעדכן" }, { status: 400 });
+  }
+
   const result = await prisma.exercise.updateMany({ where: { id: exerciseId, clientId }, data });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
   if (data.audioFileUrl !== undefined && previousAudioUrl) await deleteUploadByUrl(previousAudioUrl);
   if (data.pdfFileUrl !== undefined && previousPdfUrl) await deleteUploadByUrl(previousPdfUrl);
+  if (moveFrom) await renumberContainer(clientId, moveFrom.folderId);
 
   const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   if (hadNoContentYet && (data.audioFileUrl || data.pdfFileUrl) && exercise) {
@@ -100,22 +167,8 @@ export async function DELETE(
 
   await deleteUploadByUrl(existing.audioFileUrl);
   await deleteUploadByUrl(existing.pdfFileUrl);
-  // The calls above only trash files the app already knew about — the
-  // exercise's own Drive folder (and anything dropped into it by hand)
-  // needs its own trash so it doesn't linger as orphaned clutter.
-  if (existing.driveFolderId) {
-    try {
-      await trashDriveFile(existing.driveFolderId);
-    } catch (e) {
-      console.error("Failed to trash exercise's Drive folder", e);
-    }
-  }
   await prisma.exercise.delete({ where: { id: exerciseId } });
-
-  const remaining = await prisma.exercise.findMany({ where: { clientId }, orderBy: { number: "asc" } });
-  await prisma.$transaction(
-    remaining.map((e, i) => prisma.exercise.update({ where: { id: e.id }, data: { number: i + 1 } }))
-  );
+  await renumberContainer(clientId, existing.folderId);
 
   return NextResponse.json({ ok: true });
 }

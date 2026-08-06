@@ -19,7 +19,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         orderBy: { number: "asc" },
         include: { summaryFiles: { orderBy: { order: "asc" } } },
       },
-      exercises: { orderBy: { number: "asc" } },
+      exercises: { where: { folderId: null }, orderBy: { number: "asc" } },
+      exerciseFolders: {
+        orderBy: { order: "asc" },
+        include: { items: { orderBy: { number: "asc" } } },
+      },
     },
   });
   if (!client) notFound();
@@ -36,6 +40,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         lastActiveAt: client.lastActiveAt?.toISOString() ?? null,
         sessions: client.sessions.map((s) => ({ ...s, viewedAt: s.viewedAt?.toISOString() ?? null })),
         exercises: client.exercises,
+        exerciseFolders: client.exerciseFolders,
         notes: client.sessions
           .filter((s) => s.clientNote && s.clientNote.trim())
           .map((s) => ({ sessionId: s.id, number: s.number, title: s.title, text: s.clientNote })),
