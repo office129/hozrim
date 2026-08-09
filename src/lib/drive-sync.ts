@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { driveFileId } from "@/lib/external-links";
-import { notifyClient } from "@/lib/notifications";
+import { notifyClient, notifyAllClients } from "@/lib/notifications";
 import {
   listFolderFiles,
   listSubfolders,
@@ -353,6 +353,7 @@ export async function syncExerciseCategoryFiles(folder: { id: string; clientId: 
 // sharing that folder, so those are only ever updated through the app.
 export async function reconcileLibraryItemFolder(item: {
   id: string;
+  title: string;
   videoFileUrl: string | null;
   audioFileUrl: string | null;
   fileUrl: string | null;
@@ -371,6 +372,11 @@ export async function reconcileLibraryItemFolder(item: {
   let hasVideo = !!videoId && currentIds.has(videoId);
   let hasAudio = !!audioId && currentIds.has(audioId);
   let hasGeneric = !!genericId && currentIds.has(genericId);
+  // Whether this item had no content at all before this pass - a
+  // manually-dropped file that fills its first slot notifies every
+  // client the same way an in-app upload does; a second file added
+  // afterward doesn't notify again.
+  const hadNoContentYet = !hasVideo && !hasAudio && !hasGeneric;
 
   const data: { videoFileUrl?: null; videoFileName?: null; audioFileUrl?: null; audioFileName?: null; fileUrl?: null; fileName?: null } = {};
   if (videoId && !hasVideo) {
@@ -409,6 +415,10 @@ export async function reconcileLibraryItemFolder(item: {
 
   if (Object.keys(data).length || Object.keys(updates).length) {
     await prisma.libraryItem.update({ where: { id: item.id }, data: { ...data, ...updates } });
+  }
+
+  if (hadNoContentYet && (updates.videoFileUrl || updates.audioFileUrl || updates.fileUrl)) {
+    await notifyAllClients({ title: `תוכן חדש נוסף לספריית התכנים: ${item.title}`, link: "/app/roadmap" });
   }
 }
 

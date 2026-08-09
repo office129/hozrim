@@ -4,6 +4,7 @@ import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl, driveFileId } from "@/lib/external-links";
 import { trashDriveFile, getOrCreateLibraryFolder, findOrCreateLibraryCategoryFolder, moveDriveFile } from "@/lib/google-drive-oauth";
+import { notifyAllClients } from "@/lib/notifications";
 
 const LINK_SLOTS = {
   video: { urlField: "videoFileUrl", nameField: "videoFileName" },
@@ -30,6 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   let previousUrl: string | null = null;
   let hasLinkUpdate = false;
+  let hadNoContentYet = false;
   if (body?.slot === "video" || body?.slot === "audio" || body?.slot === "file") {
     const slot: "video" | "audio" | "file" = body.slot;
     const existing = await prisma.libraryItem.findUnique({ where: { id } });
@@ -37,6 +39,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const fields = LINK_SLOTS[slot];
     hasLinkUpdate = true;
     previousUrl = existing[fields.urlField];
+    // Whether this update is the item's first content of any kind - a
+    // second file added afterward shouldn't notify all clients again.
+    hadNoContentYet = !existing.videoFileUrl && !existing.audioFileUrl && !existing.fileUrl;
 
     if (body?.remove === true) {
       data[fields.urlField] = null;
@@ -105,6 +110,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const item = await prisma.libraryItem.update({ where: { id }, data });
   if (hasLinkUpdate && previousUrl) await deleteUploadByUrl(previousUrl);
   if (moveFrom) await renumberContainer(moveFrom.folderId);
+  if (hadNoContentYet && (data.videoFileUrl || data.audioFileUrl || data.fileUrl)) {
+    await notifyAllClients({ title: `תוכן חדש נוסף לספריית התכנים: ${item.title}`, link: "/app/roadmap" });
+  }
   return NextResponse.json({ item });
 }
 
