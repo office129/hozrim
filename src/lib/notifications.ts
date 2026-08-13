@@ -1,7 +1,20 @@
 import { prisma } from "@/lib/prisma";
-import { sendMail } from "@/lib/email";
+import { sendMail, isEmailConfigured } from "@/lib/email";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { sendPushToClient, sendPushToAllClients } from "@/lib/push";
+
+// Emails every admin on the team - used for things the coach needs to
+// know about (a client left a note, recordings awaiting manual matching).
+// Best-effort: no email service configured just means nothing is sent.
+export async function notifyAdmins(subject: string, text: string): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const admins = await prisma.admin.findMany({ select: { email: true } });
+  await Promise.all(
+    admins.map((admin) =>
+      sendMail(admin.email, subject, text).catch((e) => console.error("Failed to notify admin", e))
+    )
+  );
+}
 
 async function emailClient(clientId: string, title: string) {
   try {

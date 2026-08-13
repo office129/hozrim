@@ -69,9 +69,15 @@ const TABS = [
   { key: "notes", label: "הערות הלקוח/ה" },
 ] as const;
 
-export function ClientDetailView({ client }: { client: ClientDetail }) {
+export function ClientDetailView({
+  client,
+  initialTab,
+}: {
+  client: ClientDetail;
+  initialTab?: (typeof TABS)[number]["key"];
+}) {
   const router = useRouter();
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("sessions");
+  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>(initialTab ?? "sessions");
   const [banner, setBanner] = useState<{ emailSent: boolean; tempPassword?: string } | null>(null);
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);

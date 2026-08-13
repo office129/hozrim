@@ -3,8 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { ClientDetailView } from "@/components/admin/ClientDetailView";
 import { syncClientFolders } from "@/lib/drive-sync-job";
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
 
   // Best-effort: catches up on anything created/removed by hand in this
   // client's Drive folders since the last daily sync, so it's reflected
@@ -30,6 +37,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   return (
     <ClientDetailView
+      initialTab={tab === "notes" || tab === "exercises" ? tab : undefined}
       client={{
         id: client.id,
         name: client.name,

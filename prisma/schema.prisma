@@ -151,8 +151,9 @@ model LessonSession {
   summaryText  String?
   summaryFiles SessionSummaryFile[]
 
-  completed  Boolean @default(false)
-  clientNote String?
+  completed          Boolean   @default(false)
+  clientNote         String?
+  clientNoteNotifiedAt DateTime? // when the admin was last emailed about this session's client note - coalesces a whole editing session into one email instead of one per keystroke-save
 
   createdAt DateTime @default(now())
 

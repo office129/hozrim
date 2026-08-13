@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendMail, isEmailConfigured } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notifications";
 import { getConnection, listFolderFiles, listSubfolders } from "@/lib/google-drive-oauth";
 import { extractEventName, importMeetRecordingForClient } from "@/lib/meet-import";
 import {
@@ -45,17 +45,6 @@ import {
 //    — must run after step 2 so an older session that just hasn't been
 //    reconciled yet doesn't look "new" here and get a duplicate created.
 
-async function notifyAdmins(subject: string, text: string) {
-  if (!isEmailConfigured()) return;
-  const admins = await prisma.admin.findMany({ select: { email: true } });
-  for (const admin of admins) {
-    try {
-      await sendMail(admin.email, subject, text);
-    } catch (e) {
-      console.error("Failed to notify admin about Meet import", e);
-    }
-  }
-}
 
 // Since Google's July 2026 change, Meet no longer drops recording files
 // directly into the configured folder - it creates one subfolder per

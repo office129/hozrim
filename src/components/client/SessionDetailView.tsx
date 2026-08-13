@@ -35,6 +35,9 @@ export function SessionDetailView({
   const [saveIndicator, setSaveIndicator] = useState("");
   const [tipVisible, setTipVisible] = useState(!!showCompleteTip);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The note value the admin was last told about, so leaving the field
+  // without any real change doesn't fire a pointless "new message" email.
+  const lastNotifiedNote = useRef(session.clientNote || "");
 
   const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
 
@@ -58,6 +61,18 @@ export function SessionDetailView({
       await apiSend(`/api/client/sessions/${session.id}`, "PATCH", { clientNote: value });
       setSaveIndicator("נשמר");
     }, 600);
+  }
+
+  // When the client finishes writing (leaves the field), tell the server
+  // to email the admin the finished note - only if it actually changed
+  // since the last time we notified.
+  async function onNoteBlur() {
+    const value = note.trim();
+    if (!value || value === lastNotifiedNote.current.trim()) return;
+    lastNotifiedNote.current = note;
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    await apiSend(`/api/client/sessions/${session.id}`, "PATCH", { clientNote: note, finalizeNote: true });
+    setSaveIndicator("נשמר");
   }
 
   const hasSummaryText = !!(session.summaryText && session.summaryText.trim());
@@ -154,6 +169,7 @@ export function SessionDetailView({
         <textarea
           value={note}
           onChange={(e) => onNoteChange(e.target.value)}
+          onBlur={onNoteBlur}
           placeholder="מה עולה לך מהפגישה הזו..."
           className="w-full min-h-[100px] p-3.5 rounded-2xl border border-border bg-card text-sm text-ink outline-none resize-y"
         />
