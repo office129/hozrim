@@ -21,13 +21,25 @@ const STATUS_LABEL: Record<string, string> = {
   no_folder: "נמצאה התאמה, אך ללא תיקיית דרייב",
 };
 
-export function MeetImportsView({ imports, clients }: { imports: Import[]; clients: ClientOption[] }) {
+export function MeetImportsView({
+  imports,
+  clients,
+  ignoreKeywords,
+  driveConnected,
+}: {
+  imports: Import[];
+  clients: ClientOption[];
+  ignoreKeywords: string;
+  driveConnected: boolean;
+}) {
   return (
     <div className="animate-fade-up">
       <div className="font-heading font-bold text-2xl text-ink mb-1.5">הקלטות לשיוך</div>
       <div className="text-[13px] text-muted mb-5">
         הקלטות Meet שהמערכת לא הצליחה לשייך אוטומטית ללקוח/ה — לפי שם שמופיע (או לא מופיע בבירור) בשם ההקלטה.
       </div>
+
+      {driveConnected && <IgnoreKeywordsEditor initial={ignoreKeywords} />}
 
       {imports.length === 0 && (
         <div className="text-center py-16 text-muted text-sm">אין כרגע הקלטות שממתינות לשיוך</div>
@@ -38,6 +50,56 @@ export function MeetImportsView({ imports, clients }: { imports: Import[]; clien
           <ImportRow key={item.id} item={item} clients={clients} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function IgnoreKeywordsEditor({ initial }: { initial: string }) {
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    setError("");
+    try {
+      const res = await apiSend("/api/admin/drive-oauth/ignore-keywords", "PATCH", { keywords: value });
+      setValue(res.keywords ?? value);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "השמירה נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl px-4 py-3.5 mb-5">
+      <div className="text-sm font-semibold text-ink mb-1">מילים להתעלמות</div>
+      <div className="text-[12.5px] text-muted mb-3 leading-relaxed">
+        הקלטה מ-Meet ששם הפגישה שלה מכיל אחת מהמילים האלה (למשל שיעורים קבוצתיים שאינם לקוח) — תדולג לגמרי ולא תופיע כאן
+        לשיוך. הפרד/י בפסיקים.
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="מנויים, תקשורת, הגות"
+          className="flex-1 min-w-[200px] px-3.5 py-2 rounded-xl border border-border-strong bg-white/70 text-[13px] text-ink outline-none focus:border-brand"
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          className="text-[12.5px] font-semibold text-brand border border-brand px-3.5 py-2 rounded-xl cursor-pointer disabled:opacity-50"
+        >
+          {saving ? "שומר…" : "שמירה"}
+        </button>
+        {saved && <span className="text-[12.5px] text-brand">נשמר ✓</span>}
+      </div>
+      {error && <div className="text-danger text-xs mt-2">{error}</div>}
     </div>
   );
 }

@@ -72,9 +72,9 @@ async function findMeetRecordingFiles(
   );
 }
 
-async function runMeetImport(meetRecordingsFolderId: string) {
+async function runMeetImport(meetRecordingsFolderId: string, ignoreKeywordsRaw?: string | null) {
   const files = await findMeetRecordingFiles(meetRecordingsFolderId);
-  if (!files.length) return { scanned: 0, new: 0, matched: 0, ambiguous: 0, unmatched: 0, noFolder: 0 };
+  if (!files.length) return { scanned: 0, new: 0, matched: 0, ambiguous: 0, unmatched: 0, noFolder: 0, ignored: 0 };
 
   const alreadyProcessed = await prisma.meetRecordingImport.findMany({
     where: { driveFileId: { in: files.map((f) => f.id) } },
@@ -83,7 +83,17 @@ async function runMeetImport(meetRecordingsFolderId: string) {
   const processedIds = new Set(alreadyProcessed.map((p) => p.driveFileId));
   const newFiles = files.filter((f) => !processedIds.has(f.id));
 
-  const counts = { matched: 0, ambiguous: 0, unmatched: 0, noFolder: 0 };
+  // The coach's own recurring group classes (not client sessions) get
+  // recorded to the same Meet folder - a recording whose meeting name
+  // contains one of these keywords is skipped entirely and never queued
+  // for manual matching. Recorded as "ignored" so it isn't re-checked
+  // every run.
+  const ignoreKeywords = (ignoreKeywordsRaw || "")
+    .split(",")
+    .map((k) => k.trim().toLowerCase())
+    .filter(Boolean);
+
+  const counts = { matched: 0, ambiguous: 0, unmatched: 0, noFolder: 0, ignored: 0 };
   if (newFiles.length) {
     const clients = await prisma.client.findMany({
       select: { id: true, name: true, driveFolderId: true, driveMeetingsFolderId: true },
@@ -92,6 +102,15 @@ async function runMeetImport(meetRecordingsFolderId: string) {
     for (const file of newFiles) {
       const eventName = file.eventName;
       const recordingDate = new Date(file.createdTime);
+
+      if (ignoreKeywords.length && ignoreKeywords.some((k) => eventName.toLowerCase().includes(k))) {
+        counts.ignored++;
+        await prisma.meetRecordingImport.create({
+          data: { driveFileId: file.id, fileName: file.name, recordingDate, status: "ignored" },
+        });
+        continue;
+      }
+
       const matches = clients.filter((c) => eventName.includes(c.name));
 
       if (matches.length !== 1) {
@@ -282,7 +301,7 @@ export async function runMeetImportJob() {
   if (!connection.meetRecordingsFolderId) {
     return { ok: true as const, skipped: "no Meet Recordings folder configured" };
   }
-  const meetImport = await runMeetImport(connection.meetRecordingsFolderId);
+  const meetImport = await runMeetImport(connection.meetRecordingsFolderId, connection.meetIgnoreKeywords);
   return { ok: true as const, meetImport };
 }
 
@@ -293,7 +312,7 @@ export async function runDriveSyncJob() {
   }
 
   const meetImport = connection.meetRecordingsFolderId
-    ? await runMeetImport(connection.meetRecordingsFolderId)
+    ? await runMeetImport(connection.meetRecordingsFolderId, connection.meetIgnoreKeywords)
     : { skipped: "no Meet Recordings folder configured" };
 
   const folderSync = await runFolderSync();
@@ -313,7 +332,7 @@ export async function syncMeetImportInBackground(): Promise<void> {
   const connection = await getConnection();
   if (!connection?.meetRecordingsFolderId) return;
   try {
-    await runMeetImport(connection.meetRecordingsFolderId);
+    await runMeetImport(connection.meetRecordingsFolderId, connection.meetIgnoreKeywords);
   } catch (e) {
     console.error("Failed to run background Meet import", e);
   }
