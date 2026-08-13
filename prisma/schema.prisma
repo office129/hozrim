@@ -152,13 +152,25 @@ model LessonSession {
   summaryText  String?
   summaryFiles SessionSummaryFile[]
 
-  completed          Boolean   @default(false)
-  clientNote         String?
-  clientNoteNotifiedAt DateTime? // when the admin was last emailed about this session's client note - coalesces a whole editing session into one email instead of one per keystroke-save
+  completed Boolean @default(false)
+  notes     SessionNote[]
 
   createdAt DateTime @default(now())
 
   @@index([clientId, number])
+}
+
+// A message the client sends the coach about a session ("הערות ליוסף").
+// A thread rather than one overwriteable field - the client confirms each
+// note and can add more over time; every one emails the admin.
+model SessionNote {
+  id        String        @id @default(cuid())
+  sessionId String
+  session   LessonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime      @default(now())
+
+  @@index([sessionId, createdAt])
 }
 
 // One PDF summary document attached to a session — a session can have

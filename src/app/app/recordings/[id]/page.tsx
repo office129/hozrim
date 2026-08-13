@@ -12,7 +12,10 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
   const [session, client] = await Promise.all([
     prisma.lessonSession.findFirst({
       where: { id, clientId },
-      include: { summaryFiles: { orderBy: { order: "asc" } } },
+      include: {
+        summaryFiles: { orderBy: { order: "asc" } },
+        notes: { orderBy: { createdAt: "asc" } },
+      },
     }),
     prisma.client.findUnique({ where: { id: clientId }, select: { hasSeenSessionCompleteTip: true } }),
   ]);
@@ -37,7 +40,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         completed: session.completed,
         summaryText: session.summaryText,
         summaryFiles: session.summaryFiles,
-        clientNote: session.clientNote,
+        notes: session.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt.toISOString() })),
       }}
     />
   );

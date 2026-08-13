@@ -15,7 +15,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       sessions: {
         orderBy: { number: "asc" },
-        include: { summaryFiles: { orderBy: { order: "asc" } } },
+        include: {
+          summaryFiles: { orderBy: { order: "asc" } },
+          notes: { orderBy: { createdAt: "asc" } },
+        },
       },
       exercises: { orderBy: { number: "asc" } },
     },
@@ -30,8 +33,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       sessions: client.sessions,
       exercises: client.exercises,
       notes: client.sessions
-        .filter((s) => s.clientNote && s.clientNote.trim())
-        .map((s) => ({ sessionId: s.id, number: s.number, title: s.title, text: s.clientNote })),
+        .filter((s) => s.notes.length > 0)
+        .map((s) => ({
+          sessionId: s.id,
+          number: s.number,
+          title: s.title,
+          notes: s.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt })),
+        })),
     },
   });
 }

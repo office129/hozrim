@@ -24,7 +24,10 @@ export default async function ClientDetailPage({
     include: {
       sessions: {
         orderBy: { number: "asc" },
-        include: { summaryFiles: { orderBy: { order: "asc" } } },
+        include: {
+          summaryFiles: { orderBy: { order: "asc" } },
+          notes: { orderBy: { createdAt: "asc" } },
+        },
       },
       exercises: { where: { folderId: null }, orderBy: { number: "asc" } },
       exerciseFolders: {
@@ -50,8 +53,13 @@ export default async function ClientDetailPage({
         exercises: client.exercises,
         exerciseFolders: client.exerciseFolders,
         notes: client.sessions
-          .filter((s) => s.clientNote && s.clientNote.trim())
-          .map((s) => ({ sessionId: s.id, number: s.number, title: s.title, text: s.clientNote })),
+          .filter((s) => s.notes.length > 0)
+          .map((s) => ({
+            sessionId: s.id,
+            number: s.number,
+            title: s.title,
+            notes: s.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt.toISOString() })),
+          })),
       }}
     />
   );

@@ -1,14 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiSend } from "@/lib/api-client";
+import { apiSend, ApiError } from "@/lib/api-client";
 import { driveEmbedUrl } from "@/lib/external-links";
 import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed";
 import { DocIcon, Waveform } from "@/components/icons";
 
 type SummaryFile = { id: string; url: string; fileName: string };
+type Note = { id: string; text: string; createdAt: string };
 
 type SessionData = {
   id: string;
@@ -19,7 +20,7 @@ type SessionData = {
   completed: boolean;
   summaryText: string | null;
   summaryFiles: SummaryFile[];
-  clientNote: string | null;
+  notes: Note[];
 };
 
 export function SessionDetailView({
@@ -31,13 +32,11 @@ export function SessionDetailView({
 }) {
   const router = useRouter();
   const [completed, setCompleted] = useState(session.completed);
-  const [note, setNote] = useState(session.clientNote || "");
-  const [saveIndicator, setSaveIndicator] = useState("");
+  const [notes, setNotes] = useState<Note[]>(session.notes);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [noteError, setNoteError] = useState("");
   const [tipVisible, setTipVisible] = useState(!!showCompleteTip);
-  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The note value the admin was last told about, so leaving the field
-  // without any real change doesn't fire a pointless "new message" email.
-  const lastNotifiedNote = useRef(session.clientNote || "");
 
   const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
 
@@ -53,26 +52,26 @@ export function SessionDetailView({
     apiSend("/api/client/me", "PATCH", { sessionCompleteTipSeen: true });
   }
 
-  function onNoteChange(value: string) {
-    setNote(value);
-    setSaveIndicator("שומר…");
-    if (noteTimer.current) clearTimeout(noteTimer.current);
-    noteTimer.current = setTimeout(async () => {
-      await apiSend(`/api/client/sessions/${session.id}`, "PATCH", { clientNote: value });
-      setSaveIndicator("נשמר");
-    }, 600);
+  async function sendNote() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setNoteError("");
+    try {
+      const { note } = await apiSend(`/api/client/sessions/${session.id}/notes`, "POST", { text });
+      setNotes((prev) => [...prev, note]);
+      setDraft("");
+    } catch (err) {
+      setNoteError(err instanceof ApiError ? err.message : "השליחה נכשלה");
+    } finally {
+      setSending(false);
+    }
   }
 
-  // When the client finishes writing (leaves the field), tell the server
-  // to email the admin the finished note - only if it actually changed
-  // since the last time we notified.
-  async function onNoteBlur() {
-    const value = note.trim();
-    if (!value || value === lastNotifiedNote.current.trim()) return;
-    lastNotifiedNote.current = note;
-    if (noteTimer.current) clearTimeout(noteTimer.current);
-    await apiSend(`/api/client/sessions/${session.id}`, "PATCH", { clientNote: note, finalizeNote: true });
-    setSaveIndicator("נשמר");
+  async function deleteNote(noteId: string) {
+    if (!confirm("למחוק את ההערה?")) return;
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    await apiSend(`/api/client/sessions/${session.id}/notes`, "DELETE", { noteId }).catch(() => router.refresh());
   }
 
   const hasSummaryText = !!(session.summaryText && session.summaryText.trim());
@@ -166,14 +165,41 @@ export function SessionDetailView({
 
       <div className="mt-6">
         <div className="text-[13px] text-muted mb-2">הערות ליוסף</div>
+
+        {notes.length > 0 && (
+          <div className="flex flex-col gap-2 mb-3">
+            {notes.map((n) => (
+              <div key={n.id} className="bg-tile rounded-2xl px-3.5 py-3">
+                <div className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{n.text}</div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[11px] text-muted-2">
+                    {new Date(n.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </span>
+                  <button onClick={() => deleteNote(n.id)} className="text-[11px] text-danger underline cursor-pointer">
+                    מחיקה
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <textarea
-          value={note}
-          onChange={(e) => onNoteChange(e.target.value)}
-          onBlur={onNoteBlur}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
           placeholder="מה עולה לך מהפגישה הזו..."
-          className="w-full min-h-[100px] p-3.5 rounded-2xl border border-border bg-card text-sm text-ink outline-none resize-y"
+          className="w-full min-h-[90px] p-3.5 rounded-2xl border border-border bg-card text-sm text-ink outline-none resize-y"
         />
-        <div className="text-[11px] text-muted-2 mt-1.5">{saveIndicator}</div>
+        <div className="flex items-center justify-between mt-2">
+          {noteError ? <span className="text-danger text-[12px]">{noteError}</span> : <span />}
+          <button
+            onClick={sendNote}
+            disabled={sending || !draft.trim()}
+            className="text-[13px] font-semibold px-4 py-2 rounded-xl bg-brand text-on-brand cursor-pointer disabled:opacity-40"
+          >
+            {sending ? "שולח…" : "שליחה ליוסף"}
+          </button>
+        </div>
       </div>
 
       <button

@@ -50,7 +50,12 @@ type ClientDetail = {
       folderId: string | null;
     }[];
   }[];
-  notes: { sessionId: string; number: number; title: string; text: string | null }[];
+  notes: {
+    sessionId: string;
+    number: number;
+    title: string;
+    notes: { id: string; text: string; createdAt: string }[];
+  }[];
 };
 
 function formatDateTime(iso: string) {
