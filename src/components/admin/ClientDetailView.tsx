@@ -54,7 +54,12 @@ type ClientDetail = {
     sessionId: string;
     number: number;
     title: string;
-    notes: { id: string; text: string; createdAt: string }[];
+    notes: {
+      id: string;
+      text: string;
+      createdAt: string;
+      replies: { id: string; text: string; createdAt: string }[];
+    }[];
   }[];
 };
 
@@ -260,7 +265,7 @@ export function ClientDetailView({
       {tab === "exercises" && (
         <ExercisesTab clientId={client.id} exercises={client.exercises} folders={client.exerciseFolders} />
       )}
-      {tab === "notes" && <NotesTab notes={client.notes} />}
+      {tab === "notes" && <NotesTab clientId={client.id} notes={client.notes} />}
     </div>
   );
 }

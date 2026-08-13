@@ -40,10 +40,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const noteId = typeof body?.noteId === "string" ? body.noteId : "";
   if (!noteId) return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
 
-  // Scope the delete to a note that belongs to a session owned by this
-  // client, so one client can't delete another's note.
+  // Scope the delete to a client-authored note on a session this client
+  // owns - so they can't delete another client's note, nor the coach's
+  // replies. (Deleting their own note cascades its replies away too.)
   const result = await prisma.sessionNote.deleteMany({
-    where: { id: noteId, session: { id: sessionId, clientId } },
+    where: { id: noteId, author: "client", session: { id: sessionId, clientId } },
   });
   if (!result.count) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
 

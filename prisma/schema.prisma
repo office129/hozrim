@@ -161,16 +161,23 @@ model LessonSession {
 }
 
 // A message the client sends the coach about a session ("הערות ליוסף").
-// A thread rather than one overwriteable field - the client confirms each
-// note and can add more over time; every one emails the admin.
+// A two-sided thread: the client confirms notes ("client"), and the coach
+// can reply to a specific one ("admin", with parentId pointing at the
+// client's note). A client note emails the admins; an admin reply
+// notifies the client in-app.
 model SessionNote {
   id        String        @id @default(cuid())
   sessionId String
   session   LessonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author    String        @default("client") // "client" | "admin"
   text      String
+  parentId  String? // set on an admin reply - the client note it answers
+  parent    SessionNote?  @relation("NoteReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   SessionNote[] @relation("NoteReplies")
   createdAt DateTime      @default(now())
 
   @@index([sessionId, createdAt])
+  @@index([parentId])
 }
 
 // One PDF summary document attached to a session — a session can have

@@ -17,7 +17,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         orderBy: { number: "asc" },
         include: {
           summaryFiles: { orderBy: { order: "asc" } },
-          notes: { orderBy: { createdAt: "asc" } },
+          notes: {
+            where: { parentId: null },
+            orderBy: { createdAt: "asc" },
+            include: { replies: { orderBy: { createdAt: "asc" } } },
+          },
         },
       },
       exercises: { orderBy: { number: "asc" } },
@@ -38,7 +42,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           sessionId: s.id,
           number: s.number,
           title: s.title,
-          notes: s.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt })),
+          notes: s.notes.map((n) => ({
+            id: n.id,
+            text: n.text,
+            createdAt: n.createdAt,
+            replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt })),
+          })),
         })),
     },
   });

@@ -9,7 +9,8 @@ import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed
 import { DocIcon, Waveform } from "@/components/icons";
 
 type SummaryFile = { id: string; url: string; fileName: string };
-type Note = { id: string; text: string; createdAt: string };
+type Reply = { id: string; text: string; createdAt: string };
+type Note = { id: string; text: string; createdAt: string; replies: Reply[] };
 
 type SessionData = {
   id: string;
@@ -59,7 +60,7 @@ export function SessionDetailView({
     setNoteError("");
     try {
       const { note } = await apiSend(`/api/client/sessions/${session.id}/notes`, "POST", { text });
-      setNotes((prev) => [...prev, note]);
+      setNotes((prev) => [...prev, { ...note, replies: [] }]);
       setDraft("");
     } catch (err) {
       setNoteError(err instanceof ApiError ? err.message : "השליחה נכשלה");
@@ -179,6 +180,15 @@ export function SessionDetailView({
                     מחיקה
                   </button>
                 </div>
+                {n.replies.map((r) => (
+                  <div key={r.id} className="mt-2.5 mr-3 ps-3 border-r-2 border-brand-soft bg-brand-soft-2 rounded-l-xl rounded-r-sm px-3 py-2.5">
+                    <div className="text-[12px] font-semibold text-brand mb-0.5">יוסף</div>
+                    <div className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{r.text}</div>
+                    <div className="text-[11px] text-muted-2 mt-1.5">
+                      {new Date(r.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

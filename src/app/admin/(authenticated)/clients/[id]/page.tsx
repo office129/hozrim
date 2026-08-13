@@ -26,7 +26,11 @@ export default async function ClientDetailPage({
         orderBy: { number: "asc" },
         include: {
           summaryFiles: { orderBy: { order: "asc" } },
-          notes: { orderBy: { createdAt: "asc" } },
+          notes: {
+            where: { parentId: null },
+            orderBy: { createdAt: "asc" },
+            include: { replies: { orderBy: { createdAt: "asc" } } },
+          },
         },
       },
       exercises: { where: { folderId: null }, orderBy: { number: "asc" } },
@@ -58,7 +62,12 @@ export default async function ClientDetailPage({
             sessionId: s.id,
             number: s.number,
             title: s.title,
-            notes: s.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt.toISOString() })),
+            notes: s.notes.map((n) => ({
+              id: n.id,
+              text: n.text,
+              createdAt: n.createdAt.toISOString(),
+              replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt.toISOString() })),
+            })),
           })),
       }}
     />

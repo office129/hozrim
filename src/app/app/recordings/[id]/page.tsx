@@ -14,7 +14,11 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
       where: { id, clientId },
       include: {
         summaryFiles: { orderBy: { order: "asc" } },
-        notes: { orderBy: { createdAt: "asc" } },
+        notes: {
+          where: { parentId: null },
+          orderBy: { createdAt: "asc" },
+          include: { replies: { orderBy: { createdAt: "asc" } } },
+        },
       },
     }),
     prisma.client.findUnique({ where: { id: clientId }, select: { hasSeenSessionCompleteTip: true } }),
@@ -40,7 +44,12 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         completed: session.completed,
         summaryText: session.summaryText,
         summaryFiles: session.summaryFiles,
-        notes: session.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt.toISOString() })),
+        notes: session.notes.map((n) => ({
+          id: n.id,
+          text: n.text,
+          createdAt: n.createdAt.toISOString(),
+          replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt.toISOString() })),
+        })),
       }}
     />
   );
