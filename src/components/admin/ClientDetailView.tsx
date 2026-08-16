@@ -58,7 +58,7 @@ type ClientDetail = {
       id: string;
       text: string;
       createdAt: string;
-      replies: { id: string; text: string; createdAt: string }[];
+      replies: { id: string; text: string; createdAt: string; author: string }[];
     }[];
   }[];
 };

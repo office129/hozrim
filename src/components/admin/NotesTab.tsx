@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiSend, ApiError } from "@/lib/api-client";
 
-type Reply = { id: string; text: string; createdAt: string };
+type Reply = { id: string; text: string; createdAt: string; author: string };
 type Note = { id: string; text: string; createdAt: string; replies: Reply[] };
 type NoteData = { sessionId: string; number: number; title: string; notes: Note[] };
 
@@ -73,18 +73,30 @@ function ClientNoteRow({ clientId, sessionId, note }: { clientId: string; sessio
       <div className="text-[13.5px] text-ink leading-relaxed whitespace-pre-wrap">{note.text}</div>
       <div className="text-[11px] text-muted-2 mt-1.5">{formatDate(note.createdAt)}</div>
 
-      {note.replies.map((r) => (
-        <div key={r.id} className="mt-2.5 ps-3 border-r-2 border-brand-soft bg-card rounded-l-lg rounded-r-sm px-3 py-2">
-          <div className="text-[11.5px] font-semibold text-brand mb-0.5">התגובה שלך</div>
-          <div className="text-[13px] text-ink leading-relaxed whitespace-pre-wrap">{r.text}</div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[11px] text-muted-2">{formatDate(r.createdAt)}</span>
-            <button onClick={() => deleteReply(r.id)} className="text-[11px] text-danger underline cursor-pointer">
-              מחיקה
-            </button>
+      {note.replies.map((r) => {
+        const fromCoach = r.author === "admin";
+        return (
+          <div
+            key={r.id}
+            className={`mt-2.5 ps-3 border-r-2 px-3 py-2 rounded-l-lg rounded-r-sm ${
+              fromCoach ? "border-brand-soft bg-card" : "border-border-strong bg-white/60"
+            }`}
+          >
+            <div className={`text-[11.5px] font-semibold mb-0.5 ${fromCoach ? "text-brand" : "text-muted"}`}>
+              {fromCoach ? "התגובה שלך" : "הלקוח/ה"}
+            </div>
+            <div className="text-[13px] text-ink leading-relaxed whitespace-pre-wrap">{r.text}</div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[11px] text-muted-2">{formatDate(r.createdAt)}</span>
+              {fromCoach && (
+                <button onClick={() => deleteReply(r.id)} className="text-[11px] text-danger underline cursor-pointer">
+                  מחיקה
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {replying ? (
         <div className="mt-2.5">

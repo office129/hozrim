@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             id: n.id,
             text: n.text,
             createdAt: n.createdAt,
-            replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt })),
+            replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt, author: r.author })),
           })),
         })),
     },

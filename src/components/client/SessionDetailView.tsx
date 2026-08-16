@@ -9,7 +9,7 @@ import { AudioEmbed, DocEmbed, VideoEmbed } from "@/components/client/MediaEmbed
 import { DocIcon, Waveform } from "@/components/icons";
 
 type SummaryFile = { id: string; url: string; fileName: string };
-type Reply = { id: string; text: string; createdAt: string };
+type Reply = { id: string; text: string; createdAt: string; author: string };
 type Note = { id: string; text: string; createdAt: string; replies: Reply[] };
 
 type SessionData = {
@@ -38,6 +38,12 @@ export function SessionDetailView({
   const [sending, setSending] = useState(false);
   const [noteError, setNoteError] = useState("");
   const [tipVisible, setTipVisible] = useState(!!showCompleteTip);
+  // Which thread the client is replying to, the reply text, and which
+  // thread is showing the "this is a reply, not a new note" confirmation.
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [confirmThread, setConfirmThread] = useState<string | null>(null);
 
   const driveEmbed = session.fileUrl ? driveEmbedUrl(session.fileUrl) : null;
 
@@ -73,6 +79,45 @@ export function SessionDetailView({
     if (!confirm("למחוק את ההערה?")) return;
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await apiSend(`/api/client/sessions/${session.id}/notes`, "DELETE", { noteId }).catch(() => router.refresh());
+  }
+
+  // The client confirmed (via the small popup) that they want to reply
+  // within a thread rather than start a new note.
+  function openReply(threadId: string) {
+    setConfirmThread(null);
+    setReplyingTo(threadId);
+    setReplyDraft("");
+  }
+
+  async function sendReply(threadId: string) {
+    const text = replyDraft.trim();
+    if (!text || replySending) return;
+    setReplySending(true);
+    setNoteError("");
+    try {
+      const { note } = await apiSend(`/api/client/sessions/${session.id}/notes`, "POST", { text, parentId: threadId });
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === threadId
+            ? { ...n, replies: [...n.replies, { id: note.id, text: note.text, createdAt: note.createdAt, author: "client" }] }
+            : n
+        )
+      );
+      setReplyingTo(null);
+      setReplyDraft("");
+    } catch (err) {
+      setNoteError(err instanceof ApiError ? err.message : "השליחה נכשלה");
+    } finally {
+      setReplySending(false);
+    }
+  }
+
+  async function deleteReply(threadId: string, replyId: string) {
+    if (!confirm("למחוק את התגובה?")) return;
+    setNotes((prev) =>
+      prev.map((n) => (n.id === threadId ? { ...n, replies: n.replies.filter((r) => r.id !== replyId) } : n))
+    );
+    await apiSend(`/api/client/sessions/${session.id}/notes`, "DELETE", { noteId: replyId }).catch(() => router.refresh());
   }
 
   const hasSummaryText = !!(session.summaryText && session.summaryText.trim());
@@ -180,15 +225,63 @@ export function SessionDetailView({
                     מחיקה
                   </button>
                 </div>
-                {n.replies.map((r) => (
-                  <div key={r.id} className="mt-2.5 mr-3 ps-3 border-r-2 border-brand-soft bg-brand-soft-2 rounded-l-xl rounded-r-sm px-3 py-2.5">
-                    <div className="text-[12px] font-semibold text-brand mb-0.5">יוסף</div>
-                    <div className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{r.text}</div>
-                    <div className="text-[11px] text-muted-2 mt-1.5">
-                      {new Date(r.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                {n.replies.map((r) => {
+                  const fromCoach = r.author === "admin";
+                  return (
+                    <div
+                      key={r.id}
+                      className={`mt-2.5 mr-3 ps-3 border-r-2 px-3 py-2.5 rounded-l-xl rounded-r-sm ${
+                        fromCoach ? "border-brand-soft bg-brand-soft-2" : "border-border-strong bg-card"
+                      }`}
+                    >
+                      <div className={`text-[12px] font-semibold mb-0.5 ${fromCoach ? "text-brand" : "text-muted"}`}>
+                        {fromCoach ? "יוסף" : "את/ה"}
+                      </div>
+                      <div className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{r.text}</div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[11px] text-muted-2">
+                          {new Date(r.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        </span>
+                        {!fromCoach && (
+                          <button onClick={() => deleteReply(n.id, r.id)} className="text-[11px] text-danger underline cursor-pointer">
+                            מחיקה
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {replyingTo === n.id ? (
+                  <div className="mt-2.5">
+                    <textarea
+                      autoFocus
+                      value={replyDraft}
+                      onChange={(e) => setReplyDraft(e.target.value)}
+                      placeholder="התגובה שלך לשרשור…"
+                      className="w-full min-h-[70px] p-3 rounded-xl border border-border-strong bg-card text-sm text-ink outline-none resize-y"
+                    />
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => { setReplyingTo(null); setReplyDraft(""); }}
+                        className="text-[12.5px] text-muted px-3 py-1.5 rounded-lg border border-border-strong cursor-pointer"
+                      >
+                        ביטול
+                      </button>
+                      <button
+                        onClick={() => sendReply(n.id)}
+                        disabled={replySending || !replyDraft.trim()}
+                        className="text-[12.5px] font-semibold px-3.5 py-1.5 rounded-lg bg-brand text-on-brand cursor-pointer disabled:opacity-40"
+                      >
+                        {replySending ? "שולח…" : "שליחת תגובה"}
+                      </button>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <button onClick={() => setConfirmThread(n.id)} className="mt-2 text-[12px] font-semibold text-brand cursor-pointer">
+                    + תגובה לשרשור
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -222,6 +315,31 @@ export function SessionDetailView({
       >
         {completed ? "✓ סומן כהושלם" : "סמן פגישה כהושלמה"}
       </button>
+
+      {confirmThread && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmThread(null)}>
+          <div className="w-full max-w-[340px] bg-card rounded-2xl p-5 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-[15px] font-semibold text-ink mb-2">תגובה לשרשור</div>
+            <div className="text-[13.5px] text-muted leading-relaxed mb-5">
+              ההודעה הזו תתווסף כתגובה לשרשור הקיים — ולא כהערה חדשה. אם רצית לכתוב משהו חדש, סגור/י כאן והשתמש/י בתיבה שבתחתית.
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setConfirmThread(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border-strong text-[13px] text-muted cursor-pointer"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={() => openReply(confirmThread)}
+                className="flex-1 py-2.5 rounded-xl bg-brand text-on-brand text-[13px] font-semibold cursor-pointer"
+              >
+                המשך לתגובה
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

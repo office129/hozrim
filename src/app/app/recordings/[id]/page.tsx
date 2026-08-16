@@ -48,7 +48,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
           id: n.id,
           text: n.text,
           createdAt: n.createdAt.toISOString(),
-          replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt.toISOString() })),
+          replies: n.replies.map((r) => ({ id: r.id, text: r.text, createdAt: r.createdAt.toISOString(), author: r.author })),
         })),
       }}
     />

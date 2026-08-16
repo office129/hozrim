@@ -14,18 +14,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
 
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
+  const parentId = typeof body?.parentId === "string" && body.parentId ? body.parentId : null;
   if (!text) return NextResponse.json({ error: "נא לכתוב משהו" }, { status: 400 });
 
   const session = await prisma.lessonSession.findFirst({ where: { id: sessionId, clientId } });
   if (!session) return NextResponse.json({ error: "לא נמצא" }, { status: 404 });
 
-  const note = await prisma.sessionNote.create({ data: { sessionId, text } });
+  // A reply continues an existing thread - its parent must be a top-level
+  // note (thread root) on this session, so replies stay one level deep
+  // (a flat back-and-forth) rather than nesting endlessly.
+  if (parentId) {
+    const parent = await prisma.sessionNote.findFirst({ where: { id: parentId, sessionId, parentId: null } });
+    if (!parent) return NextResponse.json({ error: "השרשור לא נמצא" }, { status: 404 });
+  }
+
+  const note = await prisma.sessionNote.create({ data: { sessionId, author: "client", text, parentId } });
 
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
   const link = `${getAppBaseUrl()}/admin/clients/${clientId}?tab=notes`;
+  const who = client?.name || "לקוח/ה";
+  const verb = parentId ? "הגיב/ה בשרשור" : "כתב/ה הערה";
   await notifyAdmins(
-    `הודעה חדשה מ${client?.name || "לקוח/ה"} — ${session.title}`,
-    `${client?.name || "לקוח/ה"} כתב/ה הערה בשיעור "${session.title}":\n\n${text}\n\nלמענה, היכנס/י לממשק הניהול:\n${link}`
+    `הודעה חדשה מ${who} — ${session.title}`,
+    `${who} ${verb} בשיעור "${session.title}":\n\n${text}\n\nלמענה, היכנס/י לממשק הניהול:\n${link}`
   );
 
   return NextResponse.json({ note });
