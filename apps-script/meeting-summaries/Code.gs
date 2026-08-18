@@ -26,9 +26,10 @@ var CONFIG = {
   // מפתח ה-API של Gemini (Google AI Studio → Get API key)
   GEMINI_API_KEY: 'PASTE_YOUR_GEMINI_API_KEY_HERE',
 
-  // מודל Gemini. gemini-2.5-flash מהיר וזול ותומך בהבנת אודיו/וידאו.
-  // אפשר גם 'gemini-2.5-pro' לאיכות גבוהה יותר (איטי/יקר יותר).
-  GEMINI_MODEL: 'gemini-2.5-flash',
+  // מודל Gemini. gemini-3.6-flash מהיר וזול ותומך בהבנת אודיו/וידאו.
+  // אם רוצים איכות גבוהה יותר (איטי/יקר יותר) אפשר לנסות את גרסת ה-pro
+  // המקבילה (למשל 'gemini-3.6-pro'), אם היא זמינה בחשבון שלך.
+  GEMINI_MODEL: 'gemini-3.6-flash',
 
   // תיקיית השורש של הלקוחות בדרייב.
   // הכי אמין: הדבק כאן את ה-ID של התיקייה (מה שמופיע בקישור אחרי /folders/).
