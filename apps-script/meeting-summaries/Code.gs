@@ -28,7 +28,7 @@ var CONFIG = {
 
   // מודל תמונות. שמות משתנים תכופות — הרץ listImageModels() כדי לאמת מה זמין
   // אצלך, ועדכן כאן. אם המודל לא זמין/נכשל — המצגת עדיין תיווצר, בלי תמונות.
-  IMAGE_MODEL: 'gemini-3-pro-image-preview',
+  IMAGE_MODEL: 'gemini-3-pro-image',
 
   // האם לייצר תמונות רקע ב-AI (העיצוב העשיר). false = עיצוב צבעוני נקי בלבד.
   GENERATE_IMAGES: true,
