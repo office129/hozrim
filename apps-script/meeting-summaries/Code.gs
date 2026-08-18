@@ -440,11 +440,22 @@ function requestSummaryFromGemini_(uploaded, clientName) {
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
     encodeURIComponent(CONFIG.GEMINI_MODEL) + ':generateContent?key=' + encodeURIComponent(CONFIG.GEMINI_API_KEY);
 
-  var resp = UrlFetchApp.fetch(url, {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
-  });
-  if (resp.getResponseCode() >= 300) {
-    throw new Error('Gemini generateContent נכשל: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+  // ניסיון חוזר על עומס זמני (429/5xx) — בלי להעלות מחדש את הקובץ.
+  var resp = null;
+  var maxAttempts = 5; // ניסיון ראשון + עד 4 חוזרים
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    resp = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(body),
+    });
+    var code = resp.getResponseCode();
+    if (code < 300) break; // הצלחה
+    var retryable = (code === 429 || code === 500 || code === 502 || code === 503 || code === 504);
+    if (!retryable || attempt === maxAttempts) {
+      throw new Error('Gemini generateContent נכשל: ' + code + ' ' + resp.getContentText());
+    }
+    var waitSec = 10 * attempt; // 10, 20, 30, 40 שניות
+    log_('    Gemini עמוס כרגע (' + code + ') — ממתין ' + waitSec + ' שניות ומנסה שוב (ניסיון ' + attempt + '/' + (maxAttempts - 1) + ')…');
+    Utilities.sleep(waitSec * 1000);
   }
 
   var data = JSON.parse(resp.getContentText());
