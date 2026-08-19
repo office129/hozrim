@@ -8,6 +8,7 @@ import { apiSend } from "@/lib/api-client";
 import { useAppViewportHeight } from "@/lib/useAppViewportHeight";
 import { NotificationBell } from "./NotificationBell";
 import { WelcomePopup } from "./WelcomePopup";
+import { NotificationPrompt } from "./NotificationPrompt";
 
 const NAV = [
   { href: "/app/home", label: "בית" },
@@ -35,6 +36,10 @@ export function ClientShell({
   const isProfile = pathname === "/app/profile";
   const [tipVisible, setTipVisible] = useState(!!showProfileTip);
   const [welcomeVisible, setWelcomeVisible] = useState(!!showWelcomePopup);
+  // After the welcome popup, a prominent one-tap notification opt-in. It
+  // self-gates (only really shows inside the installed app), so we can flip
+  // it on unconditionally once the welcome step is done.
+  const [notifPromptVisible, setNotifPromptVisible] = useState(false);
   // Bumped after confirming the welcome popup, which seeds a real
   // notification server-side - tells the bell (already mounted, already
   // done its initial fetch) to fetch again and pick it up.
@@ -54,6 +59,7 @@ export function ClientShell({
 
   async function confirmWelcome() {
     setWelcomeVisible(false);
+    setNotifPromptVisible(true);
     await apiSend("/api/client/me", "PATCH", { welcomePopupSeen: true });
     setNotifRefreshKey((k) => k + 1);
   }
@@ -192,6 +198,7 @@ export function ClientShell({
       </div>
 
       {welcomeVisible && <WelcomePopup clientName={clientName} onConfirm={confirmWelcome} />}
+      {notifPromptVisible && <NotificationPrompt onClose={() => setNotifPromptVisible(false)} />}
     </div>
   );
 }
