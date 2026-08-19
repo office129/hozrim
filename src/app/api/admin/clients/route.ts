@@ -7,6 +7,10 @@ import { sendMail, isEmailConfigured } from "@/lib/email";
 import { getClientsOverview } from "@/lib/admin-data";
 import { createClientFolder, getConnection } from "@/lib/google-drive-oauth";
 
+// Short intro/onboarding video shown in the welcome email (and embeddable
+// in the app). Swap this URL to change the video everyone gets.
+const INTRO_VIDEO_URL = "https://youtu.be/Qw-rh9b0_Xg";
+
 export async function GET() {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
@@ -66,7 +70,7 @@ export async function POST(req: NextRequest) {
     await sendMail(
       email,
       "חוזרים לבראשית — פרטי הכניסה שלך",
-      `שלום ${name},\n\nברוכים הבאים לאפליקציית הליווי של חוזרים לבראשית.\n\nפרטי ההתחברות שלך:\nקישור לאתר: ${loginUrl}\nמייל המשתמש: ${email}\nסיסמא זמנית: ${tempPassword}\n\n(באיזור האישי כדאי להחליף סיסמא)\n\nניפגש בפנים,\nיוסף חיים שטיינר`
+      `שלום ${name},\n\nברוכים הבאים לאפליקציית הליווי של חוזרים לבראשית.\n\n🎥 סרטון הדרכה קצר להתחלה:\n${INTRO_VIDEO_URL}\n\nפרטי ההתחברות שלך:\nקישור לאתר: ${loginUrl}\nמייל המשתמש: ${email}\nסיסמא זמנית: ${tempPassword}\n\n(באיזור האישי כדאי להחליף סיסמא)\n\nניפגש בפנים,\nיוסף חיים שטיינר`
     );
     emailSent = isEmailConfigured();
   } catch (e) {
