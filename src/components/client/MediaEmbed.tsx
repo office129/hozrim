@@ -10,25 +10,27 @@ import { driveEmbedUrl, driveFileId, youTubeEmbedUrl } from "@/lib/external-link
 // loading in the browser.
 const PdfViewer = dynamic(() => import("./PdfViewer").then((m) => m.PdfViewer), { ssr: false });
 
-let driveProxyEnabled: Promise<boolean> | null = null;
+let driveProxyDisabled: Promise<boolean> | null = null;
 
-function isDriveProxyEnabled(): Promise<boolean> {
-  if (!driveProxyEnabled) {
-    driveProxyEnabled = fetch("/api/drive/status", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : { enabled: false }))
-      .then((data) => !!data.enabled)
-      .catch(() => false)
-      .then((enabled) => {
-        // Only remember a positive result. A one-off failure (a flaky
-        // mobile network at load, a cookie not sent yet) must not stick for
-        // the whole session and drop every Drive video to Google's own
-        // preview (which then demands sign-in on a phone) - clear the cache
-        // so the next video that mounts checks again.
-        if (!enabled) driveProxyEnabled = null;
-        return enabled;
-      });
+// Returns true only when the server *explicitly* reports the Drive proxy is
+// off (not configured / not connected). Any other outcome - success saying
+// it's on, a 401, a blocked or failed request - is treated as "proxy on".
+//
+// This matters on iOS installed PWAs, where a client-side fetch sometimes
+// doesn't carry the session cookie even though the <video> element's own
+// request does. Gating playback on that fetch would wrongly conclude the
+// proxy is off and drop every Drive video to Google's sign-in-gated
+// preview. Staying on the proxy unless told otherwise keeps playback
+// working there, and still falls back correctly on setups that really
+// have no Drive connection (where the check returns a clean enabled:false).
+function isDriveProxyDisabled(): Promise<boolean> {
+  if (!driveProxyDisabled) {
+    driveProxyDisabled = fetch("/api/drive/status", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.enabled === false)
+      .catch(() => false);
   }
-  return driveProxyEnabled;
+  return driveProxyDisabled;
 }
 
 // While our own server is set up to read from the coach's Drive (a
@@ -36,15 +38,15 @@ function isDriveProxyEnabled(): Promise<boolean> {
 // bytes through us and back into a normal <video>/<audio> element — full
 // control over how it looks, same as a directly uploaded file. Until
 // that's configured, we fall back to Google's own embedded preview.
-function useDriveProxySrc(url: string): string | null | undefined {
+function useDriveProxySrc(url: string): string | null {
   const fileId = driveFileId(url);
-  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [disabled, setDisabled] = useState(false);
 
   useEffect(() => {
     if (!fileId) return;
     let cancelled = false;
-    isDriveProxyEnabled().then((value) => {
-      if (!cancelled) setEnabled(value);
+    isDriveProxyDisabled().then((off) => {
+      if (!cancelled && off) setDisabled(true);
     });
     return () => {
       cancelled = true;
@@ -52,8 +54,10 @@ function useDriveProxySrc(url: string): string | null | undefined {
   }, [fileId]);
 
   if (!fileId) return null;
-  if (enabled === null) return undefined; // still checking
-  return enabled ? `/api/drive/${fileId}` : null;
+  // Optimistic: play through our proxy straight away, and only step back to
+  // Google's preview if the server confirms the proxy is off. No "checking"
+  // limbo, and no wrongful fallback when a PWA background check misfires.
+  return disabled ? null : `/api/drive/${fileId}`;
 }
 
 export function VideoEmbed({ url, className }: { url: string; className?: string }) {
@@ -76,7 +80,6 @@ export function VideoEmbed({ url, className }: { url: string; className?: string
     );
   }
 
-  if (proxySrc === undefined) return <div className={className} style={{ aspectRatio: "16/9" }} />;
   if (proxySrc) return <video controls playsInline preload="metadata" className={className} src={proxySrc} />;
 
   if (embed) {
@@ -102,7 +105,6 @@ export function AudioEmbed({ url, className }: { url: string; className?: string
   const proxySrc = useDriveProxySrc(url);
   const embed = driveEmbedUrl(url);
 
-  if (proxySrc === undefined) return <div className={className} style={{ height: 44 }} />;
   if (proxySrc) return <audio controls preload="metadata" className={className} src={proxySrc} />;
 
   if (embed) {
@@ -118,8 +120,6 @@ export function DocEmbed({ url, className }: { url: string; className?: string }
   const proxySrc = useDriveProxySrc(url);
   const fileId = driveFileId(url);
   const embed = driveEmbedUrl(url);
-
-  if (proxySrc === undefined) return <div className={className} style={{ height: 340 }} />;
 
   // Rendered with react-pdf (canvas-based) rather than an iframe — mobile
   // browsers don't reliably render PDFs embedded in an iframe the way
