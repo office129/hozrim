@@ -17,7 +17,16 @@ function isDriveProxyEnabled(): Promise<boolean> {
     driveProxyEnabled = fetch("/api/drive/status", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { enabled: false }))
       .then((data) => !!data.enabled)
-      .catch(() => false);
+      .catch(() => false)
+      .then((enabled) => {
+        // Only remember a positive result. A one-off failure (a flaky
+        // mobile network at load, a cookie not sent yet) must not stick for
+        // the whole session and drop every Drive video to Google's own
+        // preview (which then demands sign-in on a phone) - clear the cache
+        // so the next video that mounts checks again.
+        if (!enabled) driveProxyEnabled = null;
+        return enabled;
+      });
   }
   return driveProxyEnabled;
 }
