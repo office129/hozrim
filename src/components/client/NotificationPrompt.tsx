@@ -53,8 +53,11 @@ export function NotificationPrompt({ onClose }: { onClose: () => void }) {
     setLoading(true);
     try {
       await enablePushNotifications();
-      // Enabled — also silence the smaller banner so it won't ask again.
+      // Enabled — silence the smaller banner so it won't ask again, both
+      // for future loads (persisted flag) and right now (the banner is
+      // already mounted behind this modal, so tell it to hide immediately).
       apiSend("/api/client/me", "PATCH", { pushHintSeen: true });
+      window.dispatchEvent(new Event("hozrim:push-enabled"));
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "משהו השתבש");

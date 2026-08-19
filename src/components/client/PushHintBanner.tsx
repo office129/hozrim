@@ -62,6 +62,17 @@ export function PushHintBanner({ show }: { show: boolean }) {
     };
   }, [show]);
 
+  // If the client enables notifications elsewhere (e.g. the first-open
+  // prompt right after the welcome popup), hide this banner immediately —
+  // it's already mounted, so it won't otherwise re-check on its own.
+  useEffect(() => {
+    function onEnabled() {
+      setVisible(false);
+    }
+    window.addEventListener("hozrim:push-enabled", onEnabled);
+    return () => window.removeEventListener("hozrim:push-enabled", onEnabled);
+  }, []);
+
   if (!visible || mode === "hidden") return null;
 
   function markSeen() {
