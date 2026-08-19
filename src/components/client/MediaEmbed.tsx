@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { driveEmbedUrl, driveFileId } from "@/lib/external-links";
+import { driveEmbedUrl, driveFileId, youTubeEmbedUrl } from "@/lib/external-links";
 
 // pdf.js (used inside PdfViewer) references browser-only globals like
 // DOMMatrix at module-evaluation time, which crashes during server-side
@@ -50,6 +50,22 @@ function useDriveProxySrc(url: string): string | null | undefined {
 export function VideoEmbed({ url, className }: { url: string; className?: string }) {
   const proxySrc = useDriveProxySrc(url);
   const embed = driveEmbedUrl(url);
+
+  // A YouTube link isn't a playable file for a <video> element — it needs
+  // YouTube's own iframe player. Handled first so a pasted YouTube URL just
+  // works anywhere a video is expected (e.g. an intro clip in the roadmap).
+  const youtube = youTubeEmbedUrl(url);
+  if (youtube) {
+    return (
+      <iframe
+        src={youtube}
+        className={className}
+        style={{ border: 0, aspectRatio: "16/9", minHeight: 220 }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    );
+  }
 
   if (proxySrc === undefined) return <div className={className} style={{ aspectRatio: "16/9" }} />;
   if (proxySrc) return <video controls playsInline preload="metadata" className={className} src={proxySrc} />;
