@@ -51,6 +51,7 @@ export default async function ClientDetailPage({
         email: client.email,
         totalSessions: client.totalSessions,
         driveFolderId: client.driveFolderId,
+        meetLink: client.meetLink,
         firstLoginAt: client.firstLoginAt?.toISOString() ?? null,
         lastActiveAt: client.lastActiveAt?.toISOString() ?? null,
         sessions: client.sessions.map((s) => ({ ...s, viewedAt: s.viewedAt?.toISOString() ?? null })),

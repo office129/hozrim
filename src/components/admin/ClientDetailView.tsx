@@ -8,6 +8,7 @@ import { InitialBadge } from "@/components/icons";
 import { CopyableSecret } from "@/components/ui/CopyableSecret";
 import { InlineEditableText } from "./InlineEditableText";
 import { ClientDriveFolderRow } from "./ClientDriveFolderRow";
+import { ClientMeetLinkRow } from "./ClientMeetLinkRow";
 import { SessionsTab } from "./SessionsTab";
 import { ExercisesTab } from "./ExercisesTab";
 import { NotesTab } from "./NotesTab";
@@ -18,6 +19,7 @@ type ClientDetail = {
   email: string;
   totalSessions: number;
   driveFolderId: string | null;
+  meetLink: string | null;
   firstLoginAt: string | null;
   lastActiveAt: string | null;
   sessions: {
@@ -215,6 +217,7 @@ export function ClientDetailView({
       </div>
 
       <ClientDriveFolderRow clientId={client.id} driveFolderId={client.driveFolderId} />
+      <ClientMeetLinkRow clientId={client.id} meetLink={client.meetLink} />
 
       {previewUrl && (
         <div className="mb-5 rounded-xl border border-brand-soft-2 bg-brand-soft-2 px-4 py-3 text-sm text-ink">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { deleteUploadByUrl } from "@/lib/storage";
-import { driveFolderId } from "@/lib/external-links";
+import { driveFolderId, isHttpUrl } from "@/lib/external-links";
 import { findOrCreateExercisesFolder, findOrCreateMeetingsFolder, trashDriveFile } from "@/lib/google-drive-oauth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     driveFolderId?: string;
     driveExercisesFolderId?: string;
     driveMeetingsFolderId?: string;
+    meetLink?: string | null;
   } = {};
   if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
   if (typeof body?.email === "string" && body.email.trim()) data.email = body.email.trim().toLowerCase();
@@ -93,6 +94,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data.driveMeetingsFolderId = await findOrCreateMeetingsFolder(folderId);
     } catch (e) {
       console.error("Failed to find/create meetings subfolder", e);
+    }
+  }
+
+  if (typeof body?.meetLink === "string") {
+    const trimmed = body.meetLink.trim();
+    if (!trimmed) {
+      data.meetLink = null; // empty = clear the link
+    } else if (!isHttpUrl(trimmed)) {
+      return NextResponse.json({ error: "קישור לא תקין (צריך להתחיל ב-https)" }, { status: 400 });
+    } else {
+      data.meetLink = trimmed;
     }
   }
 

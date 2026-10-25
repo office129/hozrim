@@ -48,6 +48,7 @@ model Client {
   driveExercisesFolderId String? // the "תרגולים" subfolder inside driveFolderId
   driveMeetingsFolderId  String? // the "פגישות והקלטות" subfolder inside driveFolderId — each session gets its own "פגישה N" folder inside this one
   driveUploadsFolderId   String? // the "ההעלאות שלי" subfolder inside driveFolderId — created lazily, only the first time the client uploads something personal (not in driveFolderId at client creation, unlike the other two subfolders)
+  meetLink               String? // the client's personal, persistent Google Meet link — shown as an always-available "join your session" button in the client app
 }
 
 // A notification shown in the client app's bell icon - either triggered
