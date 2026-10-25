@@ -28,26 +28,6 @@ export default async function HomePage() {
   return (
     <div className="p-6 md:p-0 animate-fade-up">
       <PushHintBanner show={!client.hasSeenPushHint} />
-      {client.meetLink && (
-        <a
-          href={client.meetLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 mb-4 rounded-[18px] px-4 py-3.5 bg-gradient-to-br from-brand to-brand-light"
-        >
-          <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <rect x="2" y="6" width="13" height="12" rx="2.5" fill="var(--color-on-brand)" />
-              <path d="M17 10l5-3v10l-5-3z" fill="var(--color-on-brand)" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-base font-semibold text-on-brand">הצטרפות לפגישה שלך</div>
-            <div className="text-xs text-on-brand/70 mt-0.5">פתיחת חדר ה-Google Meet האישי שלך</div>
-          </div>
-          <div className="text-on-brand/80 text-lg shrink-0">‹</div>
-        </a>
-      )}
       <div className="grid md:grid-cols-3 gap-4 md:gap-5">
         <div className="md:col-span-2 bg-card border border-border rounded-[20px] p-[22px]">
           <div className="flex justify-between items-baseline">
@@ -112,6 +92,24 @@ export default async function HomePage() {
           <div className="text-xs text-muted">חומרים לתרגול עצמי</div>
         </Link>
       </div>
+
+      {client.meetLink && (
+        <a
+          href={client.meetLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 mt-4 rounded-[14px] px-3.5 py-2.5 bg-gradient-to-br from-brand to-brand-light"
+        >
+          <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect x="2" y="6" width="13" height="12" rx="2.5" fill="var(--color-on-brand)" />
+              <path d="M17 10l5-3v10l-5-3z" fill="var(--color-on-brand)" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0 text-sm font-semibold text-on-brand">הצטרפות לפגישה שלך</div>
+          <div className="text-on-brand/80 shrink-0">‹</div>
+        </a>
+      )}
 
       {current && (
         <div className="mt-5">

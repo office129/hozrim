@@ -20,10 +20,12 @@ export function ProfileView({
   email,
   name,
   avatarUrl,
+  meetLink,
 }: {
   email: string;
   name: string;
   avatarUrl: string | null;
+  meetLink: string | null;
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(name);
@@ -149,7 +151,29 @@ export function ProfileView({
   }
 
   return (
-    <div className="bg-card border border-border rounded-[20px] p-[22px] flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
+      {meetLink && (
+        <a
+          href={meetLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-[16px] px-4 py-3 bg-gradient-to-br from-brand to-brand-light"
+        >
+          <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect x="2" y="6" width="13" height="12" rx="2.5" fill="var(--color-on-brand)" />
+              <path d="M17 10l5-3v10l-5-3z" fill="var(--color-on-brand)" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-on-brand">הצטרפות לפגישה שלך</div>
+            <div className="text-[11px] text-on-brand/70 mt-0.5">חדר ה-Google Meet האישי שלך</div>
+          </div>
+          <div className="text-on-brand/80 shrink-0">‹</div>
+        </a>
+      )}
+
+      <div className="bg-card border border-border rounded-[20px] p-[22px] flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-full bg-brand-soft flex items-center justify-center overflow-hidden shrink-0">
           {avatar ? (
@@ -253,6 +277,7 @@ export function ProfileView({
       <button onClick={logout} className="text-[13px] text-muted underline text-center cursor-pointer mt-1">
         התנתקות
       </button>
+      </div>
     </div>
   );
 }
