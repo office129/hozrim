@@ -10,6 +10,7 @@ import { useDragReorder } from "@/lib/useDragReorder";
 import { DragHandle, ChevronDown, FolderIcon } from "@/components/icons";
 import { InlineEditableText } from "./InlineEditableText";
 import { PromptModal } from "./PromptModal";
+import { YouTubeShortsSync } from "./YouTubeShortsSync";
 import { UploadOrLinkControl } from "./UploadOrLinkControl";
 
 const NO_FOLDER = "__none__";
@@ -51,6 +52,8 @@ export function LibraryView({ items, folders }: { items: LibraryItemData[]; fold
       <div className="text-[13px] text-muted mb-5">
         תבנית התהליך הכללית — שם הפגישות והתרגולים המוצעים לכל לקוח/ה חדש/ה
       </div>
+
+      <YouTubeShortsSync />
 
       <div className="flex flex-col gap-2.5">
         {items.map((item, idx) => (

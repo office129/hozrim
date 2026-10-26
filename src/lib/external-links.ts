@@ -26,10 +26,9 @@ export function driveEmbedUrl(url: string): string | null {
   return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : null;
 }
 
-// Recognises the common YouTube URL shapes (watch?v=, youtu.be/, /embed/,
-// /shorts/) and returns a privacy-friendly nocookie embed URL, or null if
-// it isn't a YouTube link at all.
-export function youTubeEmbedUrl(url: string): string | null {
+// Pulls the video id out of the common YouTube URL shapes (watch?v=,
+// youtu.be/, /embed/, /shorts/), or null if it isn't a YouTube link.
+export function youTubeVideoId(url: string): string | null {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\.|^m\./, "");
@@ -43,11 +42,17 @@ export function youTubeEmbedUrl(url: string): string | null {
         id = m ? m[1] : null;
       }
     }
-    if (!id || !/^[A-Za-z0-9_-]{6,}$/.test(id)) return null;
-    return `https://www.youtube-nocookie.com/embed/${id}`;
+    return id && /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
   } catch {
     return null;
   }
+}
+
+// Recognises the common YouTube URL shapes and returns a privacy-friendly
+// nocookie embed URL, or null if it isn't a YouTube link at all.
+export function youTubeEmbedUrl(url: string): string | null {
+  const id = youTubeVideoId(url);
+  return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
 }
 
 export function driveFolderId(url: string): string | null {
