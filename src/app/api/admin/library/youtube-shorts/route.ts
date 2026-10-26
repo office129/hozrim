@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { fetchChannelShorts } from "@/lib/youtube";
 import { youTubeVideoId } from "@/lib/external-links";
+import { notifyAllClients } from "@/lib/notifications";
 
 // Pulling a large channel means several YouTube API round-trips; give the
 // handler room (effective on Pro/Fluid — Hobby still caps at ~10s).
@@ -73,6 +74,20 @@ export async function POST(req: NextRequest) {
       })
     ),
   ]);
+
+  // Let clients know new short videos arrived — one summary notification
+  // (in-app + push, no email), not one per video. Best-effort.
+  try {
+    await notifyAllClients({
+      title:
+        toAdd.length === 1
+          ? "סרטון קצר חדש עלה לאפליקציה 🎬"
+          : `${toAdd.length} סרטונים קצרים חדשים עלו לאפליקציה 🎬`,
+      link: "/app/roadmap",
+    });
+  } catch (e) {
+    console.error("Failed to notify clients about new shorts", e);
+  }
 
   return NextResponse.json({ added: toAdd.length, total: existing.length + toAdd.length });
 }
