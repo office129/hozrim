@@ -83,8 +83,36 @@ async function getDurations(ids: string[]): Promise<Map<string, number>> {
 
 export type YtVideo = { id: string; title: string; seconds: number };
 
-// Returns the channel's short-form videos (<= maxSeconds), newest first.
-// maxSeconds <= 0 means "no length filter" (every upload).
+// YouTube has no API flag for "is a Short", but a real Short's
+// youtube.com/shorts/<id> URL stays on /shorts/, while a regular video's
+// redirects to /watch. We check that, but only for short-enough duration
+// candidates (bounding how many network checks we do). On a check error we
+// keep very-short clips (<=60s) and drop the rest.
+async function isRealShort(id: string, seconds: number): Promise<boolean> {
+  try {
+    const res = await fetch(`https://www.youtube.com/shorts/${id}`, { method: "HEAD", redirect: "follow" });
+    return res.url.includes("/shorts/");
+  } catch {
+    return seconds <= 60;
+  }
+}
+
+async function filterRealShorts(candidates: YtVideo[]): Promise<YtVideo[]> {
+  const kept: YtVideo[] = [];
+  const CONCURRENCY = 8;
+  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    const flags = await Promise.all(batch.map((v) => isRealShort(v.id, v.seconds)));
+    batch.forEach((v, j) => {
+      if (flags[j]) kept.push(v);
+    });
+  }
+  return kept;
+}
+
+// Returns the channel's real Shorts, newest first. maxSeconds bounds which
+// videos are even considered (and how many /shorts/ checks run); set it to
+// 0 to skip the Shorts verification and take every upload up to no limit.
 export async function fetchChannelShorts(opts: {
   channel: string;
   maxSeconds: number;
@@ -94,12 +122,10 @@ export async function fetchChannelShorts(opts: {
   const vids = await listUploads(playlist, opts.maxPages);
   if (vids.length === 0) return [];
   const durations = await getDurations(vids.map((v) => v.id));
-  const result: YtVideo[] = [];
-  for (const v of vids) {
-    const seconds = durations.get(v.id) ?? 0;
-    if (opts.maxSeconds <= 0 || seconds <= opts.maxSeconds) {
-      result.push({ id: v.id, title: v.title, seconds });
-    }
-  }
-  return result; // newest first (uploads-playlist order)
+  const withSeconds: YtVideo[] = vids.map((v) => ({ id: v.id, title: v.title, seconds: durations.get(v.id) ?? 0 }));
+
+  if (opts.maxSeconds <= 0) return withSeconds; // no filter — every upload
+
+  const candidates = withSeconds.filter((v) => v.seconds > 0 && v.seconds <= opts.maxSeconds);
+  return filterRealShorts(candidates); // newest first (uploads-playlist order preserved)
 }
