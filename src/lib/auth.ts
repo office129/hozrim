@@ -9,7 +9,7 @@ const ADMIN_COOKIE = "hlb_admin_session";
 // Clients get logged out after 24h of inactivity — the cookie is
 // refreshed with a new 24h expiry on every request (see middleware.ts),
 // so continued use keeps the session alive indefinitely.
-export const CLIENT_SESSION_TTL_SECONDS = 60 * 60 * 24;
+export const CLIENT_SESSION_TTL_SECONDS = 60 * 60 * 72; // 72h (3 days), sliding — resets on every activity
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days, fixed from login
 
 // A coach-generated "see the client's own app as them" link, used purely

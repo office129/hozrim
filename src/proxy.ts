@@ -37,8 +37,8 @@ export async function proxy(request: NextRequest) {
   // own request latency.
   after(() => prisma.client.update({ where: { id: clientId }, data: { lastActiveAt: new Date() } }).catch(() => {}));
 
-  // Sliding 24h session: every authenticated request resets the clock, so
-  // a client only gets logged out after a full day of no activity at all.
+  // Sliding 72h session: every authenticated request resets the clock, so
+  // a client only gets logged out after three full days of no activity at all.
   const fresh = await signClientToken(clientId);
   response.cookies.set(CLIENT_COOKIE, fresh, {
     httpOnly: true,
