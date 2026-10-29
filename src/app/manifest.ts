@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/?app=client",
     name: "חוזרים לבראשית",
     short_name: "חוזרים לבראשית",
     description: "מרחב הליווי האישי שלך",
