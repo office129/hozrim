@@ -16,7 +16,22 @@ model Admin {
   name         String
   createdAt    DateTime @default(now())
 
-  resetTokens AdminPasswordResetToken[]
+  resetTokens       AdminPasswordResetToken[]
+  pushSubscriptions AdminPushSubscription[]
+}
+
+// A coach's device registered for push notifications (e.g. a client wrote a
+// note) — the admin-side mirror of PushSubscription.
+model AdminPushSubscription {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
 }
 
 model Client {

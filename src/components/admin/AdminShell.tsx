@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { apiSend } from "@/lib/api-client";
+import { AdminPushToggle } from "./AdminPushToggle";
 
 const NAV = [
   { href: "/admin/clients", label: "לקוחות", match: "/admin/clients" },
@@ -38,7 +39,10 @@ export function AdminShell({
       {/* Mobile topbar */}
       <div className="md:hidden sticky top-0 z-10 flex items-center justify-between bg-brand-dark px-[18px] py-3.5">
         <div className="text-on-brand font-semibold text-[15px]">פאנל ניהול</div>
-        <Image src="/assets/logo.png" alt="" width={30} height={30} className="rounded-full" />
+        <div className="flex items-center gap-2.5">
+          <AdminPushToggle compact />
+          <Image src="/assets/logo.png" alt="" width={30} height={30} className="rounded-full" />
+        </div>
       </div>
 
       {/* Desktop sidebar */}
@@ -67,7 +71,8 @@ export function AdminShell({
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-2">
-          <div className="text-on-brand/45 text-[11px] truncate">מחוברת כ־{adminEmail}</div>
+          <AdminPushToggle />
+          <div className="text-on-brand/45 text-[11px] truncate">מחובר/ת כ־{adminEmail}</div>
           <button onClick={logout} className="text-on-brand/70 text-[12px] text-right hover:underline cursor-pointer">
             התנתקות
           </button>

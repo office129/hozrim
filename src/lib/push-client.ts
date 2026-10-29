@@ -26,10 +26,11 @@ export async function getExistingPushSubscription(): Promise<PushSubscription | 
 
 // Registers the service worker (idempotent - a second call is a no-op if
 // one's already registered), asks for notification permission, and sends
-// the resulting subscription to the server. Throws with a Hebrew message
-// on anything the caller should show to the client (permission denied,
-// unsupported browser, missing server config).
-export async function enablePushNotifications(): Promise<void> {
+// the resulting subscription to the given endpoint. Throws with a Hebrew
+// message on anything the caller should show (permission denied,
+// unsupported browser, missing server config). The subscribePath lets the
+// same flow serve both the client app and the admin panel.
+async function enablePush(subscribePath: string): Promise<void> {
   if (!isPushSupported()) {
     throw new Error("הדפדפן הזה לא תומך בהתראות");
   }
@@ -55,16 +56,32 @@ export async function enablePushNotifications(): Promise<void> {
     }));
 
   const json = subscription.toJSON();
-  await apiSend("/api/client/push/subscribe", "POST", {
+  await apiSend(subscribePath, "POST", {
     endpoint: json.endpoint,
     p256dh: json.keys?.p256dh,
     auth: json.keys?.auth,
   });
 }
 
-export async function disablePushNotifications(): Promise<void> {
+async function disablePush(unsubscribePath: string): Promise<void> {
   const subscription = await getExistingPushSubscription();
   if (!subscription) return;
-  await apiSend("/api/client/push/unsubscribe", "POST", { endpoint: subscription.endpoint });
+  await apiSend(unsubscribePath, "POST", { endpoint: subscription.endpoint });
   await subscription.unsubscribe();
+}
+
+export function enablePushNotifications(): Promise<void> {
+  return enablePush("/api/client/push/subscribe");
+}
+
+export function disablePushNotifications(): Promise<void> {
+  return disablePush("/api/client/push/unsubscribe");
+}
+
+export function enableAdminPushNotifications(): Promise<void> {
+  return enablePush("/api/admin/push/subscribe");
+}
+
+export function disableAdminPushNotifications(): Promise<void> {
+  return disablePush("/api/admin/push/unsubscribe");
 }

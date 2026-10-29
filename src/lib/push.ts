@@ -18,7 +18,8 @@ function ensureConfigured() {
 
 async function sendToSubscription(
   sub: { id: string; endpoint: string; p256dh: string; auth: string },
-  payload: string
+  payload: string,
+  onGone: (id: string) => Promise<void>
 ) {
   try {
     await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
@@ -29,12 +30,15 @@ async function sendToSubscription(
     // retried forever.
     const statusCode = (e as { statusCode?: number })?.statusCode;
     if (statusCode === 404 || statusCode === 410) {
-      await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+      await onGone(sub.id).catch(() => {});
     } else {
       console.error("Failed to send push notification", e);
     }
   }
 }
+
+const dropClientSub = (id: string) => prisma.pushSubscription.delete({ where: { id } }).then(() => {});
+const dropAdminSub = (id: string) => prisma.adminPushSubscription.delete({ where: { id } }).then(() => {});
 
 export async function sendPushToClient(clientId: string, data: { title: string; link?: string }): Promise<void> {
   if (!isPushConfigured()) return;
@@ -43,7 +47,7 @@ export async function sendPushToClient(clientId: string, data: { title: string; 
 
   ensureConfigured();
   const payload = JSON.stringify({ title: "חוזרים לבראשית", body: data.title, link: data.link || "/app/home" });
-  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload)));
+  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload, dropClientSub)));
 }
 
 export async function sendPushToAllClients(data: { title: string; link?: string }): Promise<void> {
@@ -53,5 +57,17 @@ export async function sendPushToAllClients(data: { title: string; link?: string 
 
   ensureConfigured();
   const payload = JSON.stringify({ title: "חוזרים לבראשית", body: data.title, link: data.link || "/app/home" });
-  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload)));
+  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload, dropClientSub)));
+}
+
+// Push to every coach device registered in the admin panel (e.g. a client
+// wrote a note). Opens into the admin panel rather than the client app.
+export async function sendPushToAllAdmins(data: { title: string; link?: string }): Promise<void> {
+  if (!isPushConfigured()) return;
+  const subscriptions = await prisma.adminPushSubscription.findMany();
+  if (!subscriptions.length) return;
+
+  ensureConfigured();
+  const payload = JSON.stringify({ title: "פאנל ניהול — חוזרים לבראשית", body: data.title, link: data.link || "/admin/clients" });
+  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload, dropAdminSub)));
 }

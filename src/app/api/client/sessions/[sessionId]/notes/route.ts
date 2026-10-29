@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireClient, isResponse } from "@/lib/guard";
 import { notifyAdmins } from "@/lib/notifications";
+import { sendPushToAllAdmins } from "@/lib/push";
 import { getAppBaseUrl } from "@/lib/app-url";
 
 // The client confirms a note to the coach about this session. Each note is
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     `הודעה חדשה מ${who} — ${session.title}`,
     `${who} ${verb} בשיעור "${session.title}":\n\n${text}\n\nלמענה, היכנס/י לממשק הניהול:\n${link}`
   );
+
+  // Push straight to the coach's installed admin panel (in-app + push, no
+  // email duplication — the email above still goes out too).
+  await sendPushToAllAdmins({
+    title: `${who} ${verb} — ${session.title}`,
+    link: `/admin/clients/${clientId}?tab=notes`,
+  }).catch((e) => console.error("Failed to push note to admins", e));
 
   return NextResponse.json({ note });
 }

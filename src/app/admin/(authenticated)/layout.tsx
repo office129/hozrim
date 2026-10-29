@@ -1,9 +1,18 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import type { Metadata } from "next";
 import { getAdminId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { syncMeetImportInBackground } from "@/lib/drive-sync-job";
+
+// The admin panel installs as its own home-screen app (separate blue icon,
+// opens straight into the panel) — distinct from the client app's manifest.
+export const metadata: Metadata = {
+  manifest: "/admin.webmanifest",
+  appleWebApp: { capable: true, title: "ניהול", statusBarStyle: "default" },
+  icons: { apple: "/icons/admin-icon-192.png" },
+};
 
 export default async function AdminAuthenticatedLayout({
   children,
