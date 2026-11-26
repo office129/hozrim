@@ -5,6 +5,7 @@ import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl, driveFileId } from "@/lib/external-links";
 import { trashDriveFile, getOrCreateLibraryFolder, findOrCreateLibraryCategoryFolder, moveDriveFile } from "@/lib/google-drive-oauth";
 import { notifyAllClients } from "@/lib/notifications";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 const LINK_SLOTS = {
   video: { urlField: "videoFileUrl", nameField: "videoFileName" },
@@ -20,6 +21,7 @@ async function renumberContainer(folderId: string | null) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id } = await params;

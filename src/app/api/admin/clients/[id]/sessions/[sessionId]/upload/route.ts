@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { saveUpload, deleteUploadByUrl, UploadValidationError } from "@/lib/storage";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; sessionId: string }> }
 ) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id: clientId, sessionId } = await params;

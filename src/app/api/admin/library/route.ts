@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -10,6 +11,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
 

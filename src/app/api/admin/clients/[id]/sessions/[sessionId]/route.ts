@@ -5,11 +5,13 @@ import { deleteUploadByUrl } from "@/lib/storage";
 import { isHttpUrl } from "@/lib/external-links";
 import { trashDriveFile } from "@/lib/google-drive-oauth";
 import { notifyClient } from "@/lib/notifications";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; sessionId: string }> }
 ) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id: clientId, sessionId } = await params;

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getDriveAccessToken } from "@/lib/google-drive-oauth";
 import { getAppBaseUrl } from "@/lib/app-url";
@@ -267,4 +268,34 @@ export async function importOneBySourceKey(sourceKey: string) {
   const meta = await sourceMeta(item);
   if (meta.gone || (meta.mime && !meta.mime.startsWith("video/"))) return;
   await importToBunny(item);
+}
+
+// Right away instead of waiting for the scheduled run: called by the routes
+// that save a video (upload, Drive/Meet import). Runs after the response is
+// sent; outside a request it's a no-op and the scheduled run picks it up.
+let kicking = false;
+export function kickBunnySync() {
+  if (!bunnyImportEnabled()) return;
+  try {
+    after(async () => {
+      if (kicking) return;
+      kicking = true;
+      try {
+        await bunnySync(25, 50_000);
+      } catch (e) {
+        console.error("Bunny sync kick failed", e);
+      } finally {
+        kicking = false;
+      }
+    });
+  } catch {
+    // not inside a request
+  }
+}
+
+// Bunny's webhook says a video's status changed — re-check that one video
+// through the API (the webhook itself is never trusted).
+export async function refreshByGuid(guid: string) {
+  const row = await prisma.bunnyMedia.findFirst({ where: { guid, libraryId: libraryId(), ready: false, failedAt: null } });
+  return row ? refreshOne(row) : "unknown";
 }

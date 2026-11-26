@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { findOrCreateMeetingsFolder, findOrCreateSessionFolder } from "@/lib/google-drive-oauth";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
   const { id: clientId } = await params;

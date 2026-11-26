@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMeetImportJob } from "@/lib/drive-sync-job";
+import { kickBunnySync } from "@/lib/bunny-sync";
 
 // A lighter sibling of /api/cron/meet-import, meant to be called often
 // (e.g. every minute, from an external scheduler like a Google Apps
@@ -10,6 +11,7 @@ import { runMeetImportJob } from "@/lib/drive-sync-job";
 // this route is Vercel-specific, so any external caller that knows the
 // secret can hit it.
 export async function GET(req: NextRequest) {
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
