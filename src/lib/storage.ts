@@ -6,6 +6,7 @@ import { Readable } from "stream";
 import { put, del } from "@vercel/blob";
 import { driveFileId } from "@/lib/external-links";
 import { getConnection, trashDriveFile } from "@/lib/google-drive-oauth";
+import { deleteBunnyCopy } from "@/lib/bunny";
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./storage/uploads");
 
@@ -103,6 +104,7 @@ function isOwnBlobUrl(url: string) {
 
 export async function deleteUploadByUrl(url: string | null | undefined) {
   if (!url) return;
+  await deleteBunnyCopy(url);
   if (isOwnBlobUrl(url)) {
     try {
       await del(url);

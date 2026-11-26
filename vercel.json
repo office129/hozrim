@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/meet-import",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/bunny-sync",
+      "schedule": "17 * * * *"
     }
   ]
 }

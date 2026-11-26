@@ -349,3 +349,37 @@ model AdminPasswordResetToken {
 
   @@index([adminId])
 }
+
+// One row per media file copied to Bunny Stream (the "אפליקציית הליווי"
+// library). sourceKey is the Drive file id, or the full URL for a Vercel
+// Blob file. The app keeps its original fileUrl untouched — the player asks
+// /api/media/probe and plays from Bunny only once `ready` is true, falling
+// back to the original source otherwise. Sources are never deleted here.
+model BunnyMedia {
+  sourceKey     String    @id
+  guid          String // the video's id inside the Bunny library
+  kind          String // "video" | "audio"
+  ownerKey      String // "client:<id>" or "library" — which Bunny collection it lives in
+  title         String
+  status        Int? // Bunny's encode status (4 = finished, 5/6 = failed)
+  ready         Boolean   @default(false) // encoded AND a signed playlist actually answered
+  failedAt      DateTime? // encoding failed — not retried automatically
+  error         String?
+  sizeBytes     BigInt? // the stored size at Bunny once encoded
+  sourceBytes   BigInt? // the original file's size
+  readyAt       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([ready])
+  @@index([ownerKey])
+}
+
+// The Bunny collection (one per client, one for the shared library) that a
+// file is filed into — kept by id so renaming a client doesn't split it.
+model BunnyCollection {
+  ownerKey  String   @id
+  guid      String
+  name      String
+  createdAt DateTime @default(now())
+}

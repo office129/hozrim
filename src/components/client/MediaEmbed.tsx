@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { driveEmbedUrl, driveFileId, youTubeEmbedUrl } from "@/lib/external-links";
+import { attachMedia } from "@/lib/bunny-player";
 
 // pdf.js (used inside PdfViewer) references browser-only globals like
 // DOMMatrix at module-evaluation time, which crashes during server-side
@@ -60,6 +61,26 @@ function useDriveProxySrc(url: string): string | null {
   return disabled ? null : `/api/drive/${fileId}`;
 }
 
+// Files Bunny can hold a copy of: Drive files and our own Vercel Blob
+// uploads. Anything else plays straight from its URL with no probe.
+function mayBeOnBunny(url: string) {
+  if (driveFileId(url)) return true;
+  try {
+    return new URL(url).hostname.endsWith(".public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
+// A <video> that plays from Bunny Stream once the file has been copied
+// there (see bunny-player.ts), and from its original source otherwise —
+// including automatically, mid-playback, if Bunny ever stops answering.
+function BunnyVideo({ src, sourceUrl, className }: { src: string; sourceUrl: string; className?: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => attachMedia(ref.current, src, sourceUrl), [src, sourceUrl]);
+  return <video ref={ref} controls playsInline preload="metadata" className={className} />;
+}
+
 export function VideoEmbed({ url, className }: { url: string; className?: string }) {
   const proxySrc = useDriveProxySrc(url);
   const embed = driveEmbedUrl(url);
@@ -80,7 +101,7 @@ export function VideoEmbed({ url, className }: { url: string; className?: string
     );
   }
 
-  if (proxySrc) return <video controls playsInline preload="metadata" className={className} src={proxySrc} />;
+  if (proxySrc) return <BunnyVideo src={proxySrc} sourceUrl={url} className={className} />;
 
   if (embed) {
     return (
@@ -98,9 +119,12 @@ export function VideoEmbed({ url, className }: { url: string; className?: string
       />
     );
   }
+  if (mayBeOnBunny(url)) return <BunnyVideo src={url} sourceUrl={url} className={className} />;
   return <video controls playsInline preload="metadata" className={className} src={url} />;
 }
 
+// Audio keeps playing from its original source: Bunny Stream is a video
+// service, and audio is a small share of the app's traffic.
 export function AudioEmbed({ url, className }: { url: string; className?: string }) {
   const proxySrc = useDriveProxySrc(url);
   const embed = driveEmbedUrl(url);
