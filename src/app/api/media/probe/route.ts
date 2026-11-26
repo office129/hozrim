@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminId, getClientId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { bunnyConfigured, canViewSource, signedPlaylist, sourceKeyFor } from "@/lib/bunny";
+import { bunnyConfigured, bunnyImportEnabled, canViewSource, libraryId, signedPlaylist, sourceKeyFor } from "@/lib/bunny";
 import { importOneBySourceKey } from "@/lib/bunny-sync";
 
 export const runtime = "nodejs";
@@ -26,13 +26,14 @@ export async function GET(req: NextRequest) {
   if (!key) return none;
   if (!(await canViewSource(key, { adminId, clientId }))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const row = await prisma.bunnyMedia.findUnique({ where: { sourceKey: key }, select: { guid: true, ready: true } });
-  if (!row) {
+  const row = await prisma.bunnyMedia.findUnique({ where: { sourceKey: key }, select: { guid: true, ready: true, libraryId: true } });
+  if (row && row.libraryId !== libraryId()) return none; // a copy in a previous library
+  if (!row && bunnyImportEnabled()) {
     // not on Bunny yet — send it now, so the next viewing already comes from Bunny
     after(() => importOneBySourceKey(key).catch((e) => console.error("Bunny import on view failed", e)));
     return none;
   }
-  if (!row.ready) return none;
+  if (!row?.ready) return none;
   const { url, expiresAt } = signedPlaylist(row.guid, TTL_SEC);
   return NextResponse.json({ hls: url, expiresAt }, { headers: { "cache-control": "no-store" } });
 }

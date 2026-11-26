@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, isResponse } from "@/lib/guard";
 import { getAppBaseUrl } from "@/lib/app-url";
-import { bunnyAccount, bunnyApi, bunnyConfigured, libraryId } from "@/lib/bunny";
+import { bunnyAccount, bunnyApi, bunnyConfigured, bunnyImportEnabled, libraryId } from "@/lib/bunny";
 import { bunnySync, mediaInventory, sourceMeta, BUNNY_KINDS } from "@/lib/bunny-sync";
 
 export const runtime = "nodejs";
@@ -28,6 +28,7 @@ function envState() {
     BUNNY_TOKEN_KEY: !!process.env.BUNNY_TOKEN_KEY,
     BUNNY_ACCOUNT_KEY: !!process.env.BUNNY_ACCOUNT_KEY,
     BUNNY_TEMPLATE_LIBRARY_ID: !!process.env.BUNNY_TEMPLATE_LIBRARY_ID,
+    BUNNY_IMPORT_ENABLED: bunnyImportEnabled(),
   };
 }
 
@@ -40,7 +41,7 @@ async function readLibrary(id: string) {
 }
 
 async function status() {
-  const rows = await prisma.bunnyMedia.findMany({ orderBy: { createdAt: "desc" } });
+  const rows = await prisma.bunnyMedia.findMany({ where: { libraryId: libraryId() }, orderBy: { createdAt: "desc" } });
   const ready = rows.filter((r) => r.ready);
   const failed = rows.filter((r) => r.failedAt);
   const pending = rows.filter((r) => !r.ready && !r.failedAt);
@@ -50,6 +51,7 @@ async function status() {
   const collections = await prisma.bunnyCollection.count();
   return {
     configured: bunnyConfigured(),
+    importEnabled: bunnyImportEnabled(),
     env: envState(),
     totals: {
       videosInApp: byKind("video"),

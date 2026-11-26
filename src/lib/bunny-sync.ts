@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getDriveAccessToken } from "@/lib/google-drive-oauth";
 import { getAppBaseUrl } from "@/lib/app-url";
-import { bunnyApi, bunnyConfigured, isDriveKey, signedPlaylist, sourceKeyFor } from "@/lib/bunny";
+import { bunnyApi, bunnyConfigured, bunnyImportEnabled, isDriveKey, libraryId, signedPlaylist, sourceKeyFor } from "@/lib/bunny";
 
 // Copies the app's media into Bunny and keeps BunnyMedia up to date.
 // Bunny pulls each file itself (Drive with a short-lived OAuth header, or
@@ -94,12 +94,13 @@ export async function sourceMeta(item: Pick<InventoryItem, "sourceKey">): Promis
 // doesn't split their files across two collections.
 async function ensureCollection(ownerKey: string, name: string): Promise<string> {
   const known = await prisma.bunnyCollection.findUnique({ where: { ownerKey } });
-  if (known) return known.guid;
+  if (known && known.libraryId === libraryId()) return known.guid;
+  if (known) await prisma.bunnyCollection.delete({ where: { ownerKey } }); // from a previous library
   const c = await bunnyApi(`/collections`, { method: "POST", body: JSON.stringify({ name }) });
   const guid = (c.data as { guid?: string })?.guid;
   if (!c.ok || !guid) return "";
   try {
-    await prisma.bunnyCollection.create({ data: { ownerKey, guid, name } });
+    await prisma.bunnyCollection.create({ data: { ownerKey, guid, name, libraryId: libraryId() } });
     return guid;
   } catch {
     // another run created it at the same moment — use theirs, drop ours
@@ -112,10 +113,10 @@ async function ensureCollection(ownerKey: string, name: string): Promise<string>
 // overlapping runs (the hourly job + a viewer opening the file) can never
 // import the same file twice — the second insert simply fails.
 export async function importToBunny(item: InventoryItem): Promise<{ ok: boolean; error?: string }> {
-  if (!bunnyConfigured()) return { ok: false, error: "Bunny לא מוגדר" };
+  if (!bunnyImportEnabled()) return { ok: false, error: "השליחה ל-Bunny כבויה (BUNNY_IMPORT_ENABLED)" };
   try {
     await prisma.bunnyMedia.create({
-      data: { sourceKey: item.sourceKey, guid: "pending", kind: item.kind, ownerKey: item.ownerKey, title: item.title },
+      data: { sourceKey: item.sourceKey, libraryId: libraryId(), guid: "pending", kind: item.kind, ownerKey: item.ownerKey, title: item.title },
     });
   } catch {
     return { ok: false, error: "כבר בתהליך" };
@@ -229,6 +230,8 @@ export async function bunnySync(max = 5, budgetMs = 45_000) {
   const out = { imported: [] as string[], ready: [] as string[], failed: [] as string[], errors: [] as string[], remaining: 0 };
   if (!bunnyConfigured()) return out;
   const started = Date.now();
+  // copies in a previous library are no longer ours to play — forget them
+  await prisma.bunnyMedia.deleteMany({ where: { libraryId: { not: libraryId() } } });
 
   const pending = await prisma.bunnyMedia.findMany({ where: { ready: false, failedAt: null } });
   for (const row of pending) {
@@ -238,6 +241,7 @@ export async function bunnySync(max = 5, budgetMs = 45_000) {
     if (s === "failed") out.failed.push(row.title);
   }
 
+  if (!bunnyImportEnabled()) return out; // checking only — nothing new is sent while the switch is off
   const known = new Set((await prisma.bunnyMedia.findMany({ select: { sourceKey: true } })).map((r) => r.sourceKey));
   const todo = (await mediaInventory()).filter((i) => BUNNY_KINDS.includes(i.kind) && !known.has(i.sourceKey));
   for (const item of todo) {
@@ -256,7 +260,7 @@ export async function bunnySync(max = 5, budgetMs = 45_000) {
 // Import just this one file right now (a viewer opened something that
 // isn't on Bunny yet) — used from the player probe, after the response.
 export async function importOneBySourceKey(sourceKey: string) {
-  if (!bunnyConfigured()) return;
+  if (!bunnyImportEnabled()) return;
   if (await prisma.bunnyMedia.findUnique({ where: { sourceKey }, select: { sourceKey: true } })) return;
   const item = (await mediaInventory()).find((i) => i.sourceKey === sourceKey);
   if (!item || !BUNNY_KINDS.includes(item.kind)) return;

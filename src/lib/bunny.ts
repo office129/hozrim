@@ -30,6 +30,14 @@ export function bunnyConfigured() {
   return !!(lib() && process.env.BUNNY_API_KEY && host() && tokenKey());
 }
 
+// Sending files to Bunny is OFF unless BUNNY_IMPORT_ENABLED is "1" — so a
+// library that isn't set up yet exactly like the website's never receives
+// anything. (Playback of files already verified on the current library
+// isn't affected by this switch.)
+export function bunnyImportEnabled() {
+  return bunnyConfigured() && process.env.BUNNY_IMPORT_ENABLED?.trim() === "1";
+}
+
 type ApiResult = { ok: boolean; status: number; data: unknown };
 
 async function call(url: string, key: string, init: RequestInit): Promise<ApiResult> {

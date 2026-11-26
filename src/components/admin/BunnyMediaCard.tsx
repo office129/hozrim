@@ -5,6 +5,7 @@ import { apiSend, ApiError } from "@/lib/api-client";
 
 type Status = {
   configured: boolean;
+  importEnabled: boolean;
   env: Record<string, boolean>;
   totals: {
     videosInApp: number;
@@ -82,6 +83,12 @@ export function BunnyMediaCard() {
         </div>
       )}
 
+      {st?.configured && !st.importEnabled && (
+        <div className="text-[12.5px] text-danger mb-3 leading-relaxed">
+          השליחה ל-Bunny כבויה. לא נשלח שום קובץ עד שמוסיפים ב-Vercel את BUNNY_IMPORT_ENABLED=1 — רק אחרי שהספרייה מוגדרת בדיוק כמו של האתר.
+        </div>
+      )}
+
       {t && st?.configured && (
         <div className="text-[12.5px] text-ink mb-3 leading-relaxed">
           {t.ready} מתוך {t.videosInApp} סרטונים מנוגנים מ-Bunny · בעיבוד {t.pending} · טרם נשלחו {t.notYetSent}
@@ -90,7 +97,7 @@ export function BunnyMediaCard() {
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => run("sync")} disabled={!!busy || !st?.configured} className={`${btn} bg-brand text-on-brand`}>
+        <button onClick={() => run("sync")} disabled={!!busy || !st?.importEnabled} className={`${btn} bg-brand text-on-brand`}>
           {busy === "sync" ? "מעביר…" : "העבר עכשיו"}
         </button>
         <button onClick={() => run("status")} disabled={!!busy} className={`${btn} border border-brand text-brand`}>

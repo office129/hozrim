@@ -357,6 +357,7 @@ model AdminPasswordResetToken {
 // back to the original source otherwise. Sources are never deleted here.
 model BunnyMedia {
   sourceKey     String    @id
+  libraryId     String    @default("") // which Bunny library the copy is in — rows from a previous library are dropped
   guid          String // the video's id inside the Bunny library
   kind          String // "video" | "audio"
   ownerKey      String // "client:<id>" or "library" — which Bunny collection it lives in
@@ -379,6 +380,7 @@ model BunnyMedia {
 // file is filed into — kept by id so renaming a client doesn't split it.
 model BunnyCollection {
   ownerKey  String   @id
+  libraryId String   @default("")
   guid      String
   name      String
   createdAt DateTime @default(now())
