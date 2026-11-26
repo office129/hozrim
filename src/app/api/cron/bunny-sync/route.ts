@@ -4,7 +4,7 @@ import { bunnySync } from "@/lib/bunny-sync";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Hourly (see vercel.json): new videos (admin or client uploads, Meet
+// Every 10 minutes (see vercel.json): new videos (admin or client uploads, Meet
 // imports) are sent to Bunny, pending ones are checked until they're ready.
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -12,5 +12,5 @@ export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(await bunnySync(8, 50_000));
+  return NextResponse.json(await bunnySync(25, 50_000));
 }

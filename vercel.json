@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/bunny-sync",
-      "schedule": "17 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/youtube-shorts",
