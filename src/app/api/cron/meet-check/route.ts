@@ -11,7 +11,6 @@ import { kickBunnySync } from "@/lib/bunny-sync";
 // this route is Vercel-specific, so any external caller that knows the
 // secret can hit it.
 export async function GET(req: NextRequest) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
@@ -19,6 +18,7 @@ export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  kickBunnySync(); // a new video goes to Bunny right after this response
 
   const result = await runMeetImportJob();
   return NextResponse.json(result);

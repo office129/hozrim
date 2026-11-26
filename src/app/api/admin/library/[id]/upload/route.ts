@@ -8,9 +8,9 @@ import { kickBunnySync } from "@/lib/bunny-sync";
 const SLOT_KIND: Record<string, UploadKind> = { video: "video", audio: "audio", file: "file" };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const { id } = await params;
 
   const existing = await prisma.libraryItem.findUnique({ where: { id } });

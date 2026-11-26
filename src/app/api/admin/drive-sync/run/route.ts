@@ -7,9 +7,9 @@ import { kickBunnySync } from "@/lib/bunny-sync";
 // on demand — useful for testing, or just not wanting to wait for the
 // next scheduled run.
 export async function POST() {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
 
   const result = await runDriveSyncJob();
   return NextResponse.json(result);

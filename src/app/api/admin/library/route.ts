@@ -6,12 +6,12 @@ import { kickBunnySync } from "@/lib/bunny-sync";
 export async function GET() {
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const items = await prisma.libraryItem.findMany({ orderBy: { number: "asc" } });
   return NextResponse.json({ items });
 }
 
 export async function POST(req: NextRequest) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
 

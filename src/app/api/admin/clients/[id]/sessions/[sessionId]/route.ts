@@ -11,9 +11,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; sessionId: string }> }
 ) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const { id: clientId, sessionId } = await params;
 
   const body = await req.json().catch(() => null);

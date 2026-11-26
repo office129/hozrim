@@ -5,9 +5,9 @@ import { findOrCreateMeetingsFolder, findOrCreateSessionFolder } from "@/lib/goo
 import { kickBunnySync } from "@/lib/bunny-sync";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const { id: clientId } = await params;
 
   const body = await req.json().catch(() => null);

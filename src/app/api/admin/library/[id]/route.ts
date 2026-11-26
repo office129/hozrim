@@ -21,9 +21,9 @@ async function renumberContainer(folderId: string | null) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  kickBunnySync(); // a new video goes to Bunny right after this response
   const admin = await requireAdmin();
   if (isResponse(admin)) return admin;
+  kickBunnySync(); // a new video goes to Bunny right after this response
   const { id } = await params;
 
   const body = await req.json().catch(() => null);
